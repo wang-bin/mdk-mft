@@ -16,7 +16,6 @@
 #include "base/ByteArrayBuffer.h"
 #include "mdk/MediaInfo.h"
 #include "mdk/VideoFrame.h"
-#include "cppcompat/cstdlib.hpp"
 #if (MS_API_DESKTOP+0)
 #include <d3d9.h>
 #endif
@@ -155,17 +154,8 @@ bool setBuffersTo(VideoFrame& frame, ComPtr<IMFMediaBuffer> buf, bool copy = fal
     return true;
 }
 
-static int copy_buffers = -1;
-
-bool to(VideoFrame& frame, ComPtr<IMFSample> sample)
+bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
 {
-    if (copy_buffers < 0) {
-        const char* env = std::getenv("MFBUF_COPY");
-        if (env && std::atoi(env) > 0)
-            copy_buffers = 1;
-        else
-            copy_buffers = 0;
-    }
     LONGLONG t = 0;
     if (SUCCEEDED(sample->GetSampleTime(&t)))
         frame.setTimestamp(from_mf_time(t));
@@ -176,11 +166,6 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample)
     for (DWORD i = 0; i < nb_bufs; ++i) {
         ComPtr<IMFMediaBuffer> buf;
         MS_ENSURE(sample->GetBufferByIndex(i, &buf), false);
-#if 0
-        frame.setNativeBuffer(nullptr);
-        setBuffersTo(frame, buf, copy_buffers > 0);
-        return true;
-#endif
         ComPtr<IMFDXGIBuffer> dxgibuf; // MFCreateDXGISurfaceBuffer
         struct {
             ID3D11Texture2D* tex;
@@ -201,6 +186,11 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample)
             opaque = d3d9surf.Get();
 #endif
         if (opaque) {
+            if (copy > 0) {
+                frame.setNativeBuffer(nullptr);
+                setBuffersTo(frame, buf, copy > 1);
+                return true;
+            }
             // d3d: The sample will contain exactly one media buffer
             auto nbuf = frame.nativeBuffer();
             if (nbuf) {
@@ -211,10 +201,11 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample)
                 }
             }
         }
+
         DWORD len = 0;
         MS_ENSURE(buf->GetCurrentLength(&len), false);
         if (contiguous) {
-            setBuffersTo(frame, buf, copy_buffers > 0);
+            setBuffersTo(frame, buf, copy > 0);
         } else {
             ComPtr<IMF2DBuffer> buf2d;
             if (SUCCEEDED(buf.As(&buf2d))) {

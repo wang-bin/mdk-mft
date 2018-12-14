@@ -70,7 +70,11 @@ bool to(VideoFormat& fmt, const IMFAttributes* a);
 bool from(const VideoFormat& fmt, IMFAttributes* a);
 
 // frame format and size are not touched(no corresponding attributes in sample)
-bool to(VideoFrame& frame, ComPtr<IMFSample> sample);
+// \param copy
+// 0: no copy if possible, i.e. hold d3d surface for d3d buffer, or add ref to sample buffers and lock to access for software decoder sample buffers(no d3d).
+// 1: lock sample buffer for d3d, and also copy data to frame planes for software decoder sample buffers
+// 2: lock sample buffer copy data to frame planes for d3d
+bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy = 0);
 bool from(const VideoFrame& frame, ComPtr<IMFSample> sample);
 /*
 bool to(AudioFrame& frame, ComPtr<IMFMediaType> mfmt);
