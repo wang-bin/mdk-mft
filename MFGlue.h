@@ -61,7 +61,7 @@ bool from(const AudioCodecParameters& par, IMFAttributes* a);
 bool to(AudioFormat& fmt, const IMFAttributes* a);
 bool from(const AudioFormat& fmt, IMFAttributes* a);
 
-bool to(AudioFrame& frame, ComPtr<IMFSample> sample);
+bool to(AudioFrame& frame, ComPtr<IMFSample> sample, bool copy = false);
 bool from(const AudioFrame& frame, ComPtr<IMFSample> sample);
 
 bool from(const VideoCodecParameters& par, IMFAttributes* a);

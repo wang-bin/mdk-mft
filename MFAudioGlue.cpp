@@ -72,7 +72,7 @@ bool to(AudioFormat& af, const IMFAttributes* ca)
 }
 
 
-bool to(AudioFrame& frame, ComPtr<IMFSample> sample)
+bool to(AudioFrame& frame, ComPtr<IMFSample> sample, bool copy)
 {
     LONGLONG t = 0;
     if (SUCCEEDED(sample->GetSampleTime(&t)))
@@ -81,22 +81,26 @@ bool to(AudioFrame& frame, ComPtr<IMFSample> sample)
     MS_ENSURE(sample->GetBufferCount(&nb_bufs), false);
     const bool contiguous = frame.format().planeCount() > nb_bufs;
 
-    int bytes = 0;
     for (DWORD i = 0; i < nb_bufs; ++i) {
         ComPtr<IMFMediaBuffer> buf;
         MS_ENSURE(sample->GetBufferByIndex(i, &buf), false);
-        BYTE* data = nullptr;
-        DWORD len = 0;
-        MS_ENSURE(buf->Lock(&data, nullptr, &len), false);
-        bytes += len;
-        if (contiguous) {
-            const uint8_t* da[] = {data, nullptr, nullptr};
-            //frame.setBuffers(da);
+        if (copy) {
+            BYTE* data = nullptr;
+            DWORD len = 0;
+            MS_ENSURE(buf->Lock(&data, nullptr, &len), false);
+            if (contiguous) {
+                const uint8_t* da[] = {data, nullptr, nullptr};
+                //frame.setBuffers(da);
+            } else {
+                frame.addBuffer(std::make_shared<ByteArrayBuffer>(len, data));
+            }
+            buf->Unlock();
         } else {
-            frame.addBuffer(std::make_shared<ByteArrayBuffer>(len, data));
+            frame.addBuffer(to(buf));
         }
-        buf->Unlock();
     }
+    DWORD bytes = 0;
+    MS_ENSURE(sample->GetTotalLength(&bytes), false);
     frame.setSamplesPerChannel(frame.format().framesForBytes(bytes));
     return true;
 }

@@ -51,6 +51,7 @@ private:
 
     const CLSID* codec_id_ = nullptr;
     AudioFormat outfmt_;
+    bool copy_ = false;
 };
 
 bool MFTAudioDecoder::open()
@@ -66,6 +67,9 @@ bool MFTAudioDecoder::open()
     std::string prop = property("pool");
     if (!prop.empty())
         useSamplePool(std::atoi(prop.data()));
+    prop = property("copy");
+    if (!prop.empty())
+        copy_ = std::stoi(prop);
     std::clog << this << "MFT decoder is ready" << std::endl;
     onOpen();
     return true;
@@ -135,7 +139,7 @@ bool MFTAudioDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
 bool MFTAudioDecoder::onOutput(ComPtr<IMFSample> sample)
 {
     AudioFrame frame(outfmt_);
-    if (!MF::to(frame, sample))
+    if (!MF::to(frame, sample, copy_))
         return false;
     frameDecoded(frame);
     return true;
