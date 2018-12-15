@@ -42,7 +42,7 @@ ComPtr<IMF2DBuffer> from(std::shared_ptr<Buffer2D> buf);
 
 static inline LONGLONG to_mf_time(double s)
 {
-    return s*100000000.0; // 100ns
+    return LONGLONG(s*100000000.0); // 100ns
 }
 
 static inline double from_mf_time(LONGLONG ns_100)
@@ -74,7 +74,7 @@ bool from(const VideoFormat& fmt, IMFAttributes* a);
 // 0: no copy if possible, i.e. hold d3d surface for d3d buffer, or add ref to sample buffers and lock to access for software decoder sample buffers(no d3d).
 // 1: lock sample buffer for d3d, and also copy data to frame planes for software decoder sample buffers
 // 2: lock sample buffer copy data to frame planes for d3d
-bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy = 0);
+bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int strideX = 0, int strideY = 0, int copy = 0);
 bool from(const VideoFrame& frame, ComPtr<IMFSample> sample);
 /*
 bool to(AudioFrame& frame, ComPtr<IMFMediaType> mfmt);

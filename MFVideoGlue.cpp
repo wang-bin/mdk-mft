@@ -116,7 +116,7 @@ public:
     size_t stride() const override { return stride_;}
 };
 
-bool setBuffersTo(VideoFrame& frame, ComPtr<IMFMediaBuffer> buf, bool copy = false)
+bool setBuffersTo(VideoFrame& frame, ComPtr<IMFMediaBuffer> buf, int stride_x = 0, int stride_y = 0, bool copy = false)
 {
     BYTE* data = nullptr;
     DWORD len = 0;
@@ -136,13 +136,15 @@ bool setBuffersTo(VideoFrame& frame, ComPtr<IMFMediaBuffer> buf, bool copy = fal
         bs = std::make_shared<MFBuffer2DState>(buf);
         MS_ENSURE(buf->Lock(&data, nullptr, &len), false);
     }
+    if (pitch <= 0)
+        pitch = stride_x;
     const uint8_t* da[] = {data, nullptr, nullptr}; // assume no padding data if da[i>0] == null
     int strides[] = {(int)pitch, (int)pitch, (int)pitch};
     const auto& fmt = frame.format();
     for (int plane = 0; plane < fmt.planeCount(); ++plane) {
         if (pitch <= 0)
             pitch = frame.effectiveBytesPerLine(plane);
-        const size_t bytes = pitch*frame.height(plane);
+        const size_t bytes = pitch*fmt.height(stride_y, plane);
         if (copy)
             da[plane] = data;
         else
@@ -154,7 +156,7 @@ bool setBuffersTo(VideoFrame& frame, ComPtr<IMFMediaBuffer> buf, bool copy = fal
     return true;
 }
 
-bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
+bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int stride_x, int stride_y, int copy)
 {
     LONGLONG t = 0;
     if (SUCCEEDED(sample->GetSampleTime(&t)))
@@ -162,7 +164,7 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
     DWORD nb_bufs = 0;
     MS_ENSURE(sample->GetBufferCount(&nb_bufs), false);
     const auto& fmt = frame.format();
-    const bool contiguous = fmt.planeCount() > nb_bufs;
+    const bool contiguous = fmt.planeCount() > (int)nb_bufs;
     for (DWORD i = 0; i < nb_bufs; ++i) {
         ComPtr<IMFMediaBuffer> buf;
         MS_ENSURE(sample->GetBufferByIndex(i, &buf), false);
@@ -188,7 +190,7 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
         if (opaque) {
             if (copy > 0) {
                 frame.setNativeBuffer(nullptr);
-                setBuffersTo(frame, buf, copy > 1);
+                setBuffersTo(frame, buf, stride_x, stride_y, copy > 1);
                 return true;
             }
             // d3d: The sample will contain exactly one media buffer
@@ -205,7 +207,7 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
         DWORD len = 0;
         MS_ENSURE(buf->GetCurrentLength(&len), false);
         if (contiguous) {
-            setBuffersTo(frame, buf, copy > 0);
+            setBuffersTo(frame, buf, stride_x, stride_y, copy > 0);
         } else {
             ComPtr<IMF2DBuffer> buf2d;
             if (SUCCEEDED(buf.As(&buf2d))) {
@@ -216,7 +218,7 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int copy)
                 // TODO: no copy. Buffer2DRef to(ComPtr<IMFBuffer> b, int stride, int height, ptrdiff_t offset = 0, int size = -1);
                 BYTE* data = nullptr;
                 MS_ENSURE(buf->Lock(&data, nullptr, &len), false);
-                frame.addBuffer(std::make_shared<ByteArrayBuffer2D>(len/frame.height(i), frame.height(i), data));
+                frame.addBuffer(std::make_shared<ByteArrayBuffer2D>(len/fmt.height(stride_y, i), fmt.height(stride_y, i), data));
                 buf->Unlock();
             }
         }
@@ -234,7 +236,7 @@ bool from(const VideoCodecParameters& par, IMFAttributes* a)
     //MS_ENSURE(MFSetAttributeRatio(a, MF_MT_PIXEL_ASPECT_RATIO, 1, 1), false); // TODO:
 
     if (par.bit_rate > 0)
-        MS_ENSURE(a->SetUINT32(MF_MT_AVG_BITRATE, par.bit_rate), false);
+        MS_ENSURE(a->SetUINT32(MF_MT_AVG_BITRATE, (UINT32)par.bit_rate), false);
 
     // TODO: mp4 extra data check?
     bool use_extra = !par.extra.empty(); // and if no bsf
