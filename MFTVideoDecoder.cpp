@@ -24,7 +24,22 @@ https://docs.microsoft.com/en-us/uwp/api/windows.media
 
 https://docs.microsoft.com/zh-cn/windows/desktop/medfound/uncompressed-audio-media-types
 https://docs.microsoft.com/zh-cn/windows/desktop/medfound/uncompressed-video-media-types
+
+BUG:
+- (intel HD 520) hevc main10 d3d11 decoding blocks(via store extension), works again after seek. (ffmpeg d3d11/dxva works fine). gpu render core is used instead of gpu decoder.
+- 1080p on HD520 rect error
+
+Compare with FFmpeg D3D11/DXVA:
+- (intel HD 520) MFT supports gpu decoding for hevc but ffmpeg d3d11 does not, instead it use render core(hybrid mode?)
+- (intel HD 520) ffmpeg d3d11 hevc wrong output size and color. because of hybrid decoding?
+- (intel HD 520) MFT may failed to set dxva device manager for hevc main10, but ffmpeg dxva works?
 */
+//#ifdef _MSC_VER
+# pragma push_macro("_WIN32_WINNT")
+# if _WIN32_WINNT < 0x0602 // for d3d11 etc. _WIN32_WINNT_WIN8 is not defined yet
+#   undef _WIN32_WINNT
+#   define _WIN32_WINNT 0x0602
+# endif
 #include "mdk/VideoDecoder.h"
 #include "mdk/MediaInfo.h"
 #include "mdk/Packet.h"
@@ -32,9 +47,13 @@ https://docs.microsoft.com/zh-cn/windows/desktop/medfound/uncompressed-video-med
 #include "AnnexBFilter.h"
 #include "base/ByteArray.h"
 #include "base/ms/MFTCodec.h"
+#include "D3D9Utils.h"
+#include "D3D11Utils.h"
 #include <codecapi.h>
 #include <Mferror.h>
 #include <iostream>
+//#ifdef _MSC_VER
+# pragma pop_macro("_WIN32_WINNT")
 
 MDK_NS_BEGIN
 using namespace std;
@@ -72,6 +91,11 @@ private:
     VideoFrame frame_param_;
     UINT32 stride_x_ = 0;
     UINT32 stride_y_ = 0;
+    int use_d3d_ = 0;
+#if (MS_API_DESKTOP+0)
+    D3D9::Manager mgr9_;
+#endif
+    D3D11::Manager mgr11_;
     NativeVideoBufferPoolRef pool_;
 };
 
@@ -120,9 +144,39 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 {
     if (!testConstraints(mft))
         return false;
+    std::string prop = property("d3d");
+    if (!prop.empty())
+        use_d3d_ = std::atoi(prop.data());
+    uint32_t adapter = 0;
+    prop = property("adapter");
+    if (!prop.empty())
+        adapter = std::atoi(prop.data());
     ComPtr<IMFAttributes> a;
     MS_ENSURE(mft->GetAttributes(&a), false);
     // d3d: https://docs.microsoft.com/en-us/windows/desktop/medfound/direct3d-aware-mfts
+    UINT32 d3d_aware = 0;
+#if (MS_API_DESKTOP+0)
+    if (use_d3d_ == 9 && SUCCEEDED(a->GetUINT32(MF_SA_D3D_AWARE, &d3d_aware)) && d3d_aware
+        && mgr9_.init(adapter)) {
+        auto mgr = mgr9_.create();
+        if (mgr) {
+            HRESULT hr = S_OK;
+            MS_WARN((hr = mft->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)mgr.Get())));
+            if (SUCCEEDED(hr))
+                pool_ = NativeVideoBufferPool::create("D3D9");
+        }
+    }
+#endif
+    if (use_d3d_ == 11 && SUCCEEDED(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware)) && d3d_aware
+        && mgr11_.init(adapter)) {
+        auto mgr = mgr11_.create();
+        if (mgr) {
+            HRESULT hr = S_OK;
+            MS_WARN((hr = mft->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)mgr.Get())));
+            if (SUCCEEDED(hr))
+                pool_ = NativeVideoBufferPool::create("D3D11");
+        }
+    }
 
     wchar_t vendor[128]{}; // set vendor id?
     if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
@@ -241,6 +295,15 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
     // TODO: MF_MT_PIXEL_ASPECT_RATIO, MF_MT_YUV_MATRIX, MF_MT_VIDEO_PRIMARIES, MF_MT_TRANSFER_FUNCTION, MF_MT_VIDEO_CHROMA_SITING, MF_MT_VIDEO_NOMINAL_RANGE
     // MFVideoPrimaries_BT709, MFVideoPrimaries_BT2020
     // MF_MT_TRANSFER_FUNCTION:  MFVideoTransFunc_2020(_const)
+    if (use_d3d_ == 11 && pool_) {
+        //MS_ENSURE(mft_->GetOutputStreamAttributes(streamId, &a), false);
+        // win8 attributes
+        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , 1), false); // shared via keyed-mutex. FIXME: ProcessInput() error
+        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , 1), false); // shared via legacy mechanism
+        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE), false); // optional?
+        // MF_SA_D3D11_USAGE
+        //MS_ENSURE(a->SetUINT32(MF_SA_BUFFERS_PER_SAMPLE , 1), false); // 3d video
+    }
     return true;
 }
 
