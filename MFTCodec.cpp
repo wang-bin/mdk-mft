@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -124,7 +124,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     const auto category = kCategory[std::underlying_type_t<MediaType>(mt)];
     // optional KSCATEGORY_DATADECOMPRESSOR for hw
 #if !(MS_WINRT+0)
-    typedef HRESULT (*MFTEnumEx_fn)(GUID, UINT32, const MFT_REGISTER_TYPE_INFO*, const MFT_REGISTER_TYPE_INFO*, IMFActivate***, UINT32*);
+    typedef HRESULT (STDAPICALLTYPE *MFTEnumEx_fn)(GUID, UINT32, const MFT_REGISTER_TYPE_INFO*, const MFT_REGISTER_TYPE_INFO*, IMFActivate***, UINT32*);
     MFTEnumEx_fn MFTEnumEx = nullptr;
     HMODULE mfplat_dll = GetModuleHandleW(L"mfplat.dll");
     if (mfplat_dll)

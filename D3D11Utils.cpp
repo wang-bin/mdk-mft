@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -101,7 +101,7 @@ ComPtr<IMFDXGIDeviceManager> Manager::create()
     mfplat_dll_.reset(LoadLibraryA("mfplat.dll"));
     if (!mfplat_dll_)
         return nullptr;
-    typedef HRESULT (*MFCreateDXGIDeviceManager_pfn)(UINT*, IMFDXGIDeviceManager**);
+    typedef HRESULT (STDAPICALLTYPE *MFCreateDXGIDeviceManager_pfn)(UINT*, IMFDXGIDeviceManager**);
     auto MFCreateDXGIDeviceManager = (MFCreateDXGIDeviceManager_pfn)GetProcAddress(mfplat_dll_.get(), "MFCreateDXGIDeviceManager");
     if (!MFCreateDXGIDeviceManager)
         return nullptr;
