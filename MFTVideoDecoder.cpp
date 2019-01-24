@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -27,7 +27,6 @@ https://docs.microsoft.com/zh-cn/windows/desktop/medfound/uncompressed-video-med
 
 BUG:
 - (intel HD 520) hevc main10 d3d11 decoding blocks(via store extension), works again after seek. (ffmpeg d3d11/dxva works fine). gpu render core is used instead of gpu decoder.
-- 1080p on HD520 rect error
 
 Compare with FFmpeg D3D11/DXVA:
 - (intel HD 520) MFT supports gpu decoding for hevc but ffmpeg d3d11 does not, instead it use render core(hybrid mode?)
@@ -47,8 +46,8 @@ Compare with FFmpeg D3D11/DXVA:
 #include "AnnexBFilter.h"
 #include "base/ByteArray.h"
 #include "base/ms/MFTCodec.h"
-#include "D3D9Utils.h"
-#include "D3D11Utils.h"
+#include "video/d3d/D3D9Utils.h"
+#include "video/d3d/D3D11Utils.h"
 #include <codecapi.h>
 #include <Mferror.h>
 #include <iostream>
@@ -110,10 +109,10 @@ bool MFTVideoDecoder::open()
     // http://www.howtobuildsoftware.com/index.php/how-do/9vN/c-windows-ms-media-foundation-mf-doesnt-play-video-from-my-source
     if (!par.extra.empty()) {
         if (strstr(par.codec.data(), "h264")) { // & if avcC?
-            csd_ = avcc_to_annexb_extradata(par.extra.data(), par.extra.size(), &csd_size_, &nal_size_);
+            csd_ = avcc_to_annexb_extradata(par.extra.data(), (int)par.extra.size(), &csd_size_, &nal_size_);
         } else if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265")) {
-            csd_ = hvcc_to_annexb_extradata(par.extra.data(), par.extra.size(), &csd_size_, &nal_size_);
-        } // TODO: mpeg4?
+            csd_ = hvcc_to_annexb_extradata(par.extra.data(), (int)par.extra.size(), &csd_size_, &nal_size_);
+        }
     }
     if (!openCodec(MediaType::Video, *codec_id_))
         return false;
@@ -167,14 +166,17 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         }
     }
 #endif
-    if (use_d3d_ == 11 && SUCCEEDED(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware)) && d3d_aware
-        && mgr11_.init(adapter)) {
+    if (use_d3d_ == 11)
+        MS_WARN(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware));
+    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter)) {
         auto mgr = mgr11_.create();
         if (mgr) {
             HRESULT hr = S_OK;
             MS_WARN((hr = mft->ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, (ULONG_PTR)mgr.Get())));
             if (SUCCEEDED(hr))
                 pool_ = NativeVideoBufferPool::create("D3D11");
+        } else {
+            std::clog << "failed to create IMFDXGIDeviceManager. MFT d3d11 will be disabled." << std::endl;
         }
     }
 
@@ -216,13 +218,13 @@ uint8_t* MFTVideoDecoder::filter(uint8_t* data, size_t* size)
         return nullptr;
     if (nal_size_ > 0) { // TODO: PacketFilter
         //data = pkt.buffer->data(); // modify constData() if pkt is rvalue
-        to_annexb_packet(data, *size, nal_size_);
+        to_annexb_packet(data, (int)*size, nal_size_);
         
     }
     if (!prepend_csd_)
         return nullptr;
     prepend_csd_ = false;
-    csd_pkt_.resize(csd_size_ + *size);
+    csd_pkt_.resize(csd_size_ + (int)*size);
     memcpy(csd_pkt_.data(), csd_, csd_size_);
     memcpy(csd_pkt_.data() + csd_size_, data, *size);
     *size = csd_pkt_.size();

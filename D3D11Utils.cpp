@@ -103,8 +103,10 @@ ComPtr<IMFDXGIDeviceManager> Manager::create()
         return nullptr;
     typedef HRESULT (STDAPICALLTYPE *MFCreateDXGIDeviceManager_pfn)(UINT*, IMFDXGIDeviceManager**);
     auto MFCreateDXGIDeviceManager = (MFCreateDXGIDeviceManager_pfn)GetProcAddress(mfplat_dll_.get(), "MFCreateDXGIDeviceManager");
-    if (!MFCreateDXGIDeviceManager)
+    if (!MFCreateDXGIDeviceManager) {
+        std::clog << "MFCreateDXGIDeviceManager is not found in mfplat.dll" << std::endl;
         return nullptr;
+    }
 #endif
     MS_ENSURE(MFCreateDXGIDeviceManager(&token, &mgr_), nullptr);
     mgr_->ResetDevice(dev_.Get(), token); // MUST create with D3D11_CREATE_DEVICE_VIDEO_SUPPORT
