@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -69,6 +69,7 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute),
     GUID_KV(MFT_CONNECTED_STREAM_ATTRIBUTE),
     GUID_KV(MFT_CONNECTED_TO_HW_STREAM),
+    GUID_KV(MFT_SUPPORT_DYNAMIC_FORMAT_CHANGE),
     GUID_KV(MF_SA_D3D_AWARE),
     GUID_KV(MF_SA_MINIMUM_OUTPUT_SAMPLE_COUNT),
     GUID_KV(MF_SA_MINIMUM_OUTPUT_SAMPLE_COUNT_PROGRESSIVE),
