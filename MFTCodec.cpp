@@ -105,7 +105,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     CLSID *pCLSIDs = nullptr; // for MFTEnum() <win7
     auto activates_deleter = scope_atexit([&]{
         if (activates) {
-            for (int i = 0; i < nb_activates; ++i) {
+            for (UINT32 i = 0; i < nb_activates; ++i) {
                 MS_WARN(activates[i]->ShutdownObject()); // required by some. no effect if not
                 activates[i]->Release();
             }
@@ -141,7 +141,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     }
     if (nb_activates == 0)
         return false;
-    for (int i = 0; i < nb_activates; ++i) {
+    for (UINT32 i = 0; i < nb_activates; ++i) {
         if (activates) {
             ComPtr<IMFAttributes> aa;
             ComPtr<IMFActivate> act(activates[i]);
@@ -164,7 +164,6 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
         mft_.Reset();
         break;
     }
-    // TODO: too few out buffers(d3d circular buffer). mft_->GetOutputStreamAttributes()(optional, E_NOTIMPL):  MF_SA_MINIMUM_OUTPUT_SAMPLE_COUNT_PROGRESSIVE, MF_SA_MINIMUM_OUTPUT_SAMPLE_COUNT
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-direct3d-11-video-decoding-in-media-foundation#allocating-uncompressed-buffers
     if (mft_) {
         ComPtr<IMFAttributes> attr;
@@ -384,6 +383,15 @@ ComPtr<IMFSample> MFTCodec::getOutSample()
         sample->AddBuffer(buf.Get());
     };
     ComPtr<IMFSample> sample;
+#if !(MS_WINRT+0)
+    typedef HRESULT (STDAPICALLTYPE *MFCreateTrackedSample_fn)(IMFTrackedSample**);
+    static HMODULE mfplat_dll = GetModuleHandleW(L"mfplat.dll");
+    static auto MFCreateTrackedSample = (MFCreateTrackedSample_fn)GetProcAddress(mfplat_dll, "MFCreateTrackedSample");
+    if (!MFCreateTrackedSample && use_pool_) {
+        use_pool_ = false;
+        std::clog << "MFCreateTrackedSample is not found in mfplat.dll. can not use IMFTrackedSample to reduce copy" << std::endl;
+    }
+#endif
     if (!use_pool_ || !pool_cb_) {
         MS_ENSURE(MFCreateSample(&sample), nullptr);
         set_sample_buffers(sample.Get());
@@ -392,6 +400,7 @@ ComPtr<IMFSample> MFTCodec::getOutSample()
 #if (_MSC_VER + 0)
     ComPtr<IMFTrackedSample> ts;
     if (!getPool()->pop(&ts)) {
+        std::clog << this << " no sample in pool. create one" << std::endl;
         MS_ENSURE(MFCreateTrackedSample(&ts), nullptr);
         MS_ENSURE(ts.As(&sample), nullptr);
         set_sample_buffers(sample.Get());
