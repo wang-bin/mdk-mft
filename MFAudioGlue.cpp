@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -28,13 +28,7 @@ namespace MF {
 // TODO: move to MFAudioGlue.cpp
 bool to(AudioFormat::ChannelMap& cm, UINT32 cl)
 {
-    for (int n = 0; n < 64; ++n) {
-        if (cl & 1)
-            cm.push_back(AudioFormat::Channel(n)); // FIXME: 0 map to nth 0
-        cl >>= 1;
-        if (cl == 0)
-            break;
-    }
+    cm = uint64_t(cl);
     return true;
 }
 
@@ -79,7 +73,7 @@ bool to(AudioFrame& frame, ComPtr<IMFSample> sample, bool copy)
         frame.setTimestamp(from_mf_time(t));
     DWORD nb_bufs = 0;
     MS_ENSURE(sample->GetBufferCount(&nb_bufs), false);
-    const bool contiguous = frame.format().planeCount() > nb_bufs;
+    const bool contiguous = frame.format().planeCount() > (int)nb_bufs;
 
     for (DWORD i = 0; i < nb_bufs; ++i) {
         ComPtr<IMFMediaBuffer> buf;
@@ -117,13 +111,13 @@ bool from(const AudioCodecParameters& par, IMFAttributes* a)
     MS_ENSURE(a->SetGUID(MF_MT_SUBTYPE, *codec_for(par.codec, MediaType::Audio)), false);
 
     if (par.bit_rate > 0)
-        MS_ENSURE(a->SetUINT32(MF_MT_AVG_BITRATE, par.bit_rate), false);
+        MS_ENSURE(a->SetUINT32(MF_MT_AVG_BITRATE, (UINT32)par.bit_rate), false);
 
     bool use_extra = !par.extra.empty(); // and if no bsf
     if (par.codec == "aac") { // https://docs.microsoft.com/en-us/windows/desktop/medfound/mf-mt-user-data-attribute
         // https://docs.microsoft.com/en-us/windows/desktop/medfound/aac-decoder#example-media-types
         // The first 12 bytes of MF_MT_USER_DATA: HEAACWAVEINFO.wPayloadType,wAudioProfileLevelIndication,wStructType
-        ByteArray extra(12 + par.extra.size(), 0); // +2 for last 2 bytes?
+        ByteArray extra(int(12 + par.extra.size()), 0); // +2 for last 2 bytes?
         memcpy(extra.data() + 12, par.extra.data(), par.extra.size());
         const UINT32 payload_type = par.extra.empty() ? 1 : 0;
         extra[0] = payload_type; // for HEAACWAVEINFO.wPayloadType
@@ -132,7 +126,7 @@ bool from(const AudioCodecParameters& par, IMFAttributes* a)
         MS_ENSURE(a->SetUINT32(MF_MT_AAC_PAYLOAD_TYPE, payload_type), false);
     } else if (use_extra) {
         // check existing MF_MT_USER_DATA?
-        MS_ENSURE(a->SetBlob(MF_MT_USER_DATA, par.extra.data(), par.extra.size()), false);
+        MS_ENSURE(a->SetBlob(MF_MT_USER_DATA, par.extra.data(), (UINT32)par.extra.size()), false);
     }
 
     a->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, par.sample_rate);
@@ -141,7 +135,7 @@ bool from(const AudioCodecParameters& par, IMFAttributes* a)
     if (par.block_align > 0)
         a->SetUINT32(MF_MT_AUDIO_BLOCK_ALIGNMENT, par.block_align);
     if (par.bit_rate > 0)
-        a->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, par.bit_rate / 8);
+        a->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, (UINT32)(par.bit_rate / 8));
     if (par.bits_per_coded_sample)
         a->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, par.bits_per_coded_sample);
 
