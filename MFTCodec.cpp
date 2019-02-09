@@ -99,7 +99,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     };
     MFT_REGISTER_TYPE_INFO reg{kMajorType[std::underlying_type_t<MediaType>(mt)], codec_id};
     UINT32 flags = 0; // TODO: vlc flags. default 0: MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT | MFT_ENUM_FLAG_SORTANDFILTER
-    // MFT_ENUM_FLAG_HARDWARE implies MFT_ENUM_FLAG_ASYNCMFT
+    // MFT_ENUM_FLAG_HARDWARE implies MFT_ENUM_FLAG_ASYNCMFT. usually with MFT_ENUM_FLAG_TRANSCODE_ONLY, and GetStreamIDs error
     IMFActivate **activates = nullptr;
     UINT32 nb_activates = 0;
     CLSID *pCLSIDs = nullptr; // for MFTEnum() <win7
@@ -142,6 +142,10 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     if (nb_activates == 0)
         return false;
     for (UINT32 i = 0; i < nb_activates; ++i) {
+        if (i != activate_index_ && activate_index_ >= 0)
+            continue;
+        if (i > activate_index_ && activate_index_ >= 0)
+            break;
         if (activates) {
             ComPtr<IMFAttributes> aa;
             ComPtr<IMFActivate> act(activates[i]);
@@ -168,6 +172,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     if (mft_) {
         ComPtr<IMFAttributes> attr;
         if (SUCCEEDED(mft_->GetAttributes(&attr))) {
+            // TODO: what about using eventgenerator anyway
             std::clog << "Selected MFT attributes:" << std::endl;
             MF::dump(attr.Get());
         }
