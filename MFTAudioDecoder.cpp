@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -64,12 +64,8 @@ bool MFTAudioDecoder::open()
     }
     if (!openCodec(MediaType::Audio, *codec_id_))
         return false;
-    std::string prop = property("pool");
-    if (!prop.empty())
-        useSamplePool(std::atoi(prop.data()));
-    prop = property("copy");
-    if (!prop.empty())
-        copy_ = std::stoi(prop);
+    useSamplePool(std::stoi(property("pool", "1")));
+    copy_ = std::stoi(property("copy", "0"));
     std::clog << this << "MFT decoder is ready" << std::endl;
     onOpen();
     return true;

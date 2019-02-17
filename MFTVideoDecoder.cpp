@@ -54,6 +54,7 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
+// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -80,8 +81,11 @@ private:
     bool onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> type) override; // width/height, pixel format, yuv mat, color primary/transfer func/chroma sitting/range, par
     bool onOutput(ComPtr<IMFSample> sample) override;
 
-    const CLSID* codec_id_ = nullptr;
+    // properties
     int copy_ = 0;
+    int use_d3d_ = 0;
+
+    const CLSID* codec_id_ = nullptr;
     int nal_size_ = 0;
     bool prepend_csd_ = true;
     int csd_size_ = 0;
@@ -90,7 +94,6 @@ private:
     VideoFrame frame_param_;
     UINT32 stride_x_ = 0;
     UINT32 stride_y_ = 0;
-    int use_d3d_ = 0;
 #if (MS_API_DESKTOP+0)
     D3D9::Manager mgr9_;
 #endif
@@ -116,12 +119,8 @@ bool MFTVideoDecoder::open()
     }
     if (!openCodec(MediaType::Video, *codec_id_))
         return false;
-    std::string prop = property("pool");
-    if (!prop.empty())
-        useSamplePool(std::atoi(prop.data()));
-    prop = property("copy");
-    if (!prop.empty())
-        copy_ = std::stoi(prop);
+    useSamplePool(std::stoi(property("pool", "1")));
+    copy_ = std::stoi(property("copy", "0"));
     std::clog << "MFT decoder is ready" << std::endl;
     onOpen();
     return true;
@@ -143,13 +142,8 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 {
     if (!testConstraints(mft))
         return false;
-    std::string prop = property("d3d");
-    if (!prop.empty())
-        use_d3d_ = std::atoi(prop.data());
-    uint32_t adapter = 0;
-    prop = property("adapter");
-    if (!prop.empty())
-        adapter = std::atoi(prop.data());
+    use_d3d_ = std::stoi(property("d3d", "0"));
+    uint32_t adapter = std::stoi(property("adapter", "0"));
     ComPtr<IMFAttributes> a;
     MS_ENSURE(mft->GetAttributes(&a), false);
     // d3d: https://docs.microsoft.com/en-us/windows/desktop/medfound/direct3d-aware-mfts
