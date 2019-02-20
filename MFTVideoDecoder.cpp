@@ -87,7 +87,6 @@ private:
 
     const CLSID* codec_id_ = nullptr;
     int nal_size_ = 0;
-    bool prepend_csd_ = true;
     int csd_size_ = 0;
     uint8_t* csd_ = nullptr;
     ByteArray csd_pkt_;
@@ -215,9 +214,8 @@ uint8_t* MFTVideoDecoder::filter(uint8_t* data, size_t* size)
         to_annexb_packet(data, (int)*size, nal_size_);
         
     }
-    if (!prepend_csd_)
+    if (!csd_pkt_.empty())
         return nullptr;
-    prepend_csd_ = false;
     csd_pkt_.resize(csd_size_ + (int)*size);
     memcpy(csd_pkt_.data(), csd_, csd_size_);
     memcpy(csd_pkt_.data() + csd_size_, data, *size);
