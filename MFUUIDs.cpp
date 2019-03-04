@@ -123,6 +123,7 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MFAudioFormat_Dolby_AC3),
     GUID_KV(MFAudioFormat_Dolby_DDPlus),
     GUID_KV(MFAudioFormat_AAC),
+    GUID_KV(MFAudioFormat_ADTS), // MPEG ADTS AAC Audio
     GUID_KV(MFAudioFormat_MP3),
     GUID_KV(MFAudioFormat_MSP1),
     //GUID_KV(MFAudioFormat_MSAUDIO1),
@@ -220,6 +221,7 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(CODECAPI_AVDecVideoAcceleration_MPEG2),
     GUID_KV(CODECAPI_AVDecVideoAcceleration_VC1),
     GUID_KV(MFT_DECODER_EXPOSE_OUTPUT_TYPES_IN_NATIVE_ORDER),
+    GUID_KV(MFT_DECODER_QUALITY_MANAGEMENT_CUSTOM_CONTROL),
     GUID_KV(MFSampleExtension_CleanPoint),
 };
 
