@@ -108,6 +108,19 @@ bool MFTVideoDecoder::open()
         std::clog << "codec is not supported: " << par.codec << std::endl;
         return false;
     }
+    // https://docs.microsoft.com/en-us/windows/desktop/medfound/h-264-video-decoder#format-constraints
+    // TODO: other codecs
+    if (*codec_id_ == MFVideoFormat_H264) {
+        if (par.profile > 100) {
+            std::clog << "H264 profile is not supported by MFT. Max is High(100)" << std::endl;
+            return false;
+        }
+        if (par.level > 51) {
+            std::clog << "H264 level is not supported by MFT. Max is 5.1" << std::endl;
+            return false;
+        }
+        // chroma subsample?
+    }
     // http://www.howtobuildsoftware.com/index.php/how-do/9vN/c-windows-ms-media-foundation-mf-doesnt-play-video-from-my-source
     if (!par.extra.empty()) {
         if (strstr(par.codec.data(), "h264")) { // & if avcC?

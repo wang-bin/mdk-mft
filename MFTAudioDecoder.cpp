@@ -105,7 +105,7 @@ int MFTAudioDecoder::getInputTypeScore(IMFAttributes* attr)
 {
     GUID id;
     MS_ENSURE(attr->GetGUID(MF_MT_SUBTYPE, &id), -1);
-    if (id != *codec_id_) // TODO: always same id because mft is activated from same codec id?
+    if (id != *codec_id_) // TODO: always same id because mft is activated from same codec id? aac can be aac or adts
         return -1;
     return 1;
 }
@@ -115,7 +115,7 @@ int MFTAudioDecoder::getOutputTypeScore(IMFAttributes* attr)
     GUID subtype;
     MS_ENSURE(attr->GetGUID(MF_MT_SUBTYPE, &subtype), -1);
     AudioFormat fmt;
-    if (!MF::to(fmt, attr))
+    if (!MF::to(fmt, attr)) // TODO: closest channels, depth as option/property? e.g. dolby
         return -1;
     return 0;
 }
