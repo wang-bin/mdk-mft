@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  */
 #pragma once
 #include <memory>
@@ -37,9 +37,9 @@ using namespace Microsoft::WRL; //ComPtr
 #define MS_WARN(f) MS_CHECK(f)
 #define MS_CHECK(f, ...)  do { \
         while (FAILED(GetLastError())) {} \
-        HRESULT _hr_ = f; \
-        if (FAILED(_hr_)) { \
-            std::clog << #f "  ERROR@" << __LINE__ << __FUNCTION__ << ": (" << std::hex << _hr_ << std::dec << ") " << std::error_code(_hr_, std::system_category()).message() << std::endl; \
+        HRESULT __ms_hr__ = f; \
+        if (FAILED(__ms_hr__)) { \
+            std::clog << #f "  ERROR@" << __LINE__ << __FUNCTION__ << ": (" << std::hex << __ms_hr__ << std::dec << ") " << std::error_code(__ms_hr__, std::system_category()).message() << std::endl; \
             __VA_ARGS__ \
         } \
     } while (false)
