@@ -289,9 +289,11 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
     // MFGetAttributeSize: vista+
     UINT64 dim = 0;
     MS_ENSURE(a->GetUINT64(MF_MT_FRAME_SIZE, &dim), false);
-    Unpack2UINT32AsUINT64(dim, &stride_x_, &stride_y_);
-    UINT32 w = stride_x_, h = stride_y_;
-    std::clog << "output size: " << w << "x" << h << std::endl;
+    UINT32 w = 0, h = 0;
+    Unpack2UINT32AsUINT64(dim, &w, &h);
+    stride_x_ = outfmt.bytesPerLine(w, 0);
+    stride_y_ = h;
+    std::clog << "output size: " << w << "x" << h << ", stride: " << stride_x_ << "x" << stride_y_ << std::endl;
     MFVideoArea area{}; // desktop only?
     if (SUCCEEDED(a->GetBlob(MF_MT_MINIMUM_DISPLAY_APERTURE, (UINT8*)&area, sizeof(area), nullptr))) {
         std::clog << "video area: (" << area.OffsetX.value << ", " << area.OffsetY.value << "), " << area.Area.cx << "x" << area.Area.cy << std::endl;
