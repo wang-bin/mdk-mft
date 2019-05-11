@@ -123,10 +123,11 @@ bool MFTVideoDecoder::open()
     }
     // http://www.howtobuildsoftware.com/index.php/how-do/9vN/c-windows-ms-media-foundation-mf-doesnt-play-video-from-my-source
     if (!par.extra.empty()) {
+        auto extra = par.extra;
         if (strstr(par.codec.data(), "h264")) { // & if avcC?
-            csd_ = avcc_to_annexb_extradata(par.extra.data(), (int)par.extra.size(), &csd_size_, &nal_size_);
+            csd_ = avcc_to_annexb_extradata(extra.data(), (int)extra.size(), &csd_size_, &nal_size_);
         } else if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265")) {
-            csd_ = hvcc_to_annexb_extradata(par.extra.data(), (int)par.extra.size(), &csd_size_, &nal_size_);
+            csd_ = hvcc_to_annexb_extradata(extra.data(), (int)extra.size(), &csd_size_, &nal_size_);
         }
     }
     if (!openCodec(MediaType::Video, *codec_id_))
