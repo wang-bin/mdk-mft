@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -17,8 +17,6 @@ MDK_NS_BEGIN
 
 class Buffer;
 class Buffer2D;
-class IOControl;
-class MediaIO;
 class Packet;
 class AudioFormat;
 class AudioFrame;
@@ -27,6 +25,7 @@ class VideoFrame;
 struct VideoCodecParameters;
 struct AudioCodecParameters;
 enum class PixelFormat;
+class ColorSpace;
 
 namespace MF {
 // create wrapper buffer from IMF in limited offset and size, like MFCreateMediaBufferWrapper
@@ -65,6 +64,9 @@ bool to(AudioFrame& frame, ComPtr<IMFSample> sample, bool copy = false);
 bool from(const AudioFrame& frame, ComPtr<IMFSample> sample);
 
 bool from(const VideoCodecParameters& par, IMFAttributes* a);
+
+bool to(ColorSpace& cs, const IMFAttributes* a);
+bool from(const ColorSpace& cs, IMFAttributes* a);
 
 bool to(VideoFormat& fmt, const IMFAttributes* a);
 bool from(const VideoFormat& fmt, IMFAttributes* a);

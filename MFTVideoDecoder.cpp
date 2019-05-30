@@ -301,7 +301,10 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
         w = area.Area.cx;
         h = area.Area.cy;
     }
+    ColorSpace cs;
+    MF::to(cs, a.Get());
     frame_param_ = VideoFrame(w, h, outfmt);
+    frame_param_.setColorSpace(cs, true);
     // TODO: MF_MT_PIXEL_ASPECT_RATIO, MF_MT_YUV_MATRIX, MF_MT_VIDEO_PRIMARIES, MF_MT_TRANSFER_FUNCTION, MF_MT_VIDEO_CHROMA_SITING, MF_MT_VIDEO_NOMINAL_RANGE
     // MFVideoPrimaries_BT709, MFVideoPrimaries_BT2020
     // MF_MT_TRANSFER_FUNCTION:  MFVideoTransFunc_2020(_const)
@@ -331,6 +334,9 @@ bool MFTVideoDecoder::onOutput(ComPtr<IMFSample> sample)
         frame.setNativeBuffer(std::make_shared<PoolBuffer>(pool_));
     if (!MF::to(frame, sample, (int)stride_x_, (int)stride_y_, copy_))
         return false;
+    ColorSpace cs;
+    frame_param_.colorSpace(&cs);
+    frame.setColorSpace(cs, true);
     frameDecoded(frame);
     return true;
 }

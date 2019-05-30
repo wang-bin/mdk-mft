@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -26,6 +26,126 @@
 
 MDK_NS_BEGIN
 namespace MF {
+
+static const struct {
+    UINT32 mf;
+    ColorSpace::Primary primaries;
+} mf_primaries[] = {
+    {MFVideoPrimaries_BT709, ColorSpace::Primary::BT709},
+    {MFVideoPrimaries_BT470_2_SysM, ColorSpace::Primary::BT470M},
+    {MFVideoPrimaries_BT470_2_SysBG, ColorSpace::Primary::BT470BG},
+    {MFVideoPrimaries_SMPTE170M, ColorSpace::Primary::SMPTE170M},
+    {MFVideoPrimaries_SMPTE240M, ColorSpace::Primary::SMPTE240M},
+    {MFVideoPrimaries_BT2020, ColorSpace::Primary::BT2020},
+    {MFVideoPrimaries_XYZ, ColorSpace::Primary::SMPTEST428_1},
+    {MFVideoPrimaries_EBU3213, ColorSpace::Primary::EBU_3213_E},
+};
+
+static const struct {
+    UINT32 mf;
+    ColorSpace::Transfer trc;
+} mf_trcs[] = {
+    {MFVideoTransFunc_10, ColorSpace::Transfer::LINEAR},
+    {MFVideoTransFunc_22, ColorSpace::Transfer::GAMMA22},
+    {MFVideoTransFunc_28, ColorSpace::Transfer::GAMMA28},
+    {MFVideoTransFunc_709, ColorSpace::Transfer::BT709},
+    {MFVideoTransFunc_240M, ColorSpace::Transfer::SMPTE240M},
+    {MFVideoTransFunc_sRGB, ColorSpace::Transfer::IEC61966_2_1},
+    {MFVideoTransFunc_Log_100, ColorSpace::Transfer::LOG},
+    {MFVideoTransFunc_Log_316, ColorSpace::Transfer::LOG_SQRT},
+    {MFVideoTransFunc_HLG, ColorSpace::Transfer::ARIB_STD_B67},
+    //{MFVideoTransFunc_2020_const,} // ColorSpace::Matrix::BT2020_CL
+    //{MFVideoTransFunc_2020,} //  ColorSpace::Matrix::BT2020_NCL
+};
+
+static const struct {
+    UINT32 mf;
+    ColorSpace::Matrix mat;
+} mf_mats[] = {
+    {MFVideoTransferMatrix_BT709, ColorSpace::Matrix::BT709},
+    {MFVideoTransferMatrix_BT601, ColorSpace::Matrix::BT470BG},
+    {MFVideoTransferMatrix_SMPTE240M, ColorSpace::Matrix::SMPTE240M},
+    //{MFVideoTransferMatrix_BT2020_10, ColorSpace::Matrix::}, // Transfer::BT2020_10
+    //{MFVideoTransferMatrix_BT2020_12, ColorSpace::Matrix::}, // Transfer::BT2020_12
+};
+
+ColorSpace::Range to_range(UINT32 v)
+{
+    switch (v) {
+    case MFNominalRange_Unknown: return ColorSpace::Range::INVALID;
+    case MFNominalRange_Normal: return ColorSpace::Range::Full;
+    case MFNominalRange_Wide: return ColorSpace::Range::Limited;
+    default: return ColorSpace::Range::Limited;
+    }
+    return ColorSpace::Range::INVALID;
+}
+
+UINT32 from_range(ColorSpace::Range r)
+{
+    switch (r) {
+    case ColorSpace::Range::Full: return MFNominalRange_Normal;
+    case ColorSpace::Range::Limited: return MFNominalRange_Wide;
+    default: return MFNominalRange_Unknown;
+    }
+    return MFNominalRange_Unknown;
+}
+
+bool to(ColorSpace& cs, const IMFAttributes* ca)
+{
+    UINT32 v = 0;
+    auto a = const_cast<IMFAttributes*>(ca);
+    if (SUCCEEDED(a->GetUINT32(MF_MT_VIDEO_PRIMARIES, &v))) {
+        for (const auto i : mf_primaries) {
+            if (i.mf == v) {
+                cs.primaries = i.primaries;
+                break;
+            }
+        }
+    }
+    if (SUCCEEDED(a->GetUINT32(MF_MT_TRANSFER_FUNCTION, &v))) {
+        for (const auto i : mf_trcs) {
+            if (i.mf == v) {
+                cs.transfer = i.trc;
+                break;
+            }
+        }
+    }
+    if (SUCCEEDED(a->GetUINT32(MF_MT_YUV_MATRIX, &v))) {
+        for (const auto i : mf_mats) {
+            if (i.mf == v) {
+                cs.matrix = i.mat;
+                break;
+            }
+        }
+    }
+    if (SUCCEEDED(a->GetUINT32(MF_MT_VIDEO_NOMINAL_RANGE, &v)))
+        cs.range = to_range(v);
+    return true;
+}
+
+bool from(const ColorSpace& cs, IMFAttributes* a)
+{
+    for (const auto i : mf_primaries) {
+        if (i.primaries == cs.primaries) {
+            MS_WARN(a->SetUINT32(MF_MT_VIDEO_PRIMARIES, i.mf));
+            break;
+        }
+    }
+    for (const auto i : mf_trcs) {
+        if (i.trc == cs.transfer) {
+            MS_WARN(a->SetUINT32(MF_MT_TRANSFER_FUNCTION, i.mf));
+            break;
+        }
+    }
+    for (const auto i : mf_mats) {
+        if (i.mat == cs.matrix) {
+            MS_WARN(a->SetUINT32(MF_MT_YUV_MATRIX, i.mf));
+            break;
+        }
+    }
+    MS_WARN(a->SetUINT32(MF_MT_VIDEO_NOMINAL_RANGE, from_range(cs.range)));
+    return true;
+}
 
 struct mf_pix_fmt_entry {
     const GUID& guid;
@@ -86,7 +206,7 @@ bool from(const VideoFormat& fmt, IMFAttributes* a)
 // FIXME: defined in evr.lib?
 DEFINE_GUID(MR_BUFFER_SERVICE, 0xa562248c, 0x9ac6, 0x4ffc, 0x9f, 0xba, 0x3a, 0xf8, 0xf8, 0xad, 0x1a, 0x4d );
 
-class MFBuffer2DState {
+class MFBuffer2DState { // TODO: hold tracked sample?
     ComPtr<IMFMediaBuffer> buf_;
     ComPtr<IMF2DBuffer> buf2d_;
 public:
@@ -198,7 +318,9 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int stride_x, int stride_y,
             if (nbuf) {
                 auto pool = (NativeVideoBufferPool*)nbuf->map(NativeVideoBuffer::Original, nullptr);
                 if (pool) {
-                    frame.setNativeBuffer(pool->getBuffer(opaque));
+                    frame.setNativeBuffer(pool->getBuffer(opaque, [sample](){
+                        (void)sample; // recyle when no one holds d3d native buffer
+                    }));
                     return true;
                 }
             }
@@ -253,7 +375,7 @@ bool from(const VideoCodecParameters& par, IMFAttributes* a)
             use_extra = false;
     }
     if (use_extra)
-        MS_ENSURE(a->SetBlob(MF_MT_USER_DATA, par.extra.data(), par.extra.size()), false);
+        MS_ENSURE(a->SetBlob(MF_MT_USER_DATA, par.extra.data(), (UINT32)par.extra.size()), false);
     return true;
 }
 
