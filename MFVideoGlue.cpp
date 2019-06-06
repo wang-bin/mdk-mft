@@ -27,6 +27,31 @@
 MDK_NS_BEGIN
 namespace MF {
 
+#ifdef __MINGW32__
+#define DefMFVideoTransferFunction(NAME, VAL) constexpr int MFVideoTransFunc_##NAME = VAL;
+DefMFVideoTransferFunction(Log_100, 9)
+DefMFVideoTransferFunction(Log_316, 10)
+DefMFVideoTransferFunction(709_sym, 11)
+DefMFVideoTransferFunction(2020_const, 12)
+DefMFVideoTransferFunction(2020, 13)
+DefMFVideoTransferFunction(26, 14)
+DefMFVideoTransferFunction(2084, 15)
+DefMFVideoTransferFunction(HLG, 16)
+DefMFVideoTransferFunction(10_rel, 17)
+DefMFVideoTransferFunction(Last, MFVideoTransFunc_10_rel + 1)
+
+#define DefMFVideoPrimaries(NAME, VAL) constexpr int MFVideoPrimaries_##NAME = VAL;
+DefMFVideoPrimaries(BT2020, 9)
+DefMFVideoPrimaries(XYZ, 10)
+DefMFVideoPrimaries(DCI_P3, 11)
+DefMFVideoPrimaries(ACES, 12)
+DefMFVideoPrimaries(Last, MFVideoPrimaries_ACES + 1)
+
+#define DefMFVideoTransferMatrix(NAME, VAL) constexpr int MFVideoTransferMatrix_##NAME = VAL;
+DefMFVideoTransferMatrix(BT2020_10, 4)
+DefMFVideoTransferMatrix(BT2020_12, 5)
+DefMFVideoTransferMatrix(Last, MFVideoTransferMatrix_BT2020_12 + 1)
+#endif
 static const struct {
     UINT32 mf;
     ColorSpace::Primary primaries;
