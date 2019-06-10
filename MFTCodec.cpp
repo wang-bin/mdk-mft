@@ -141,7 +141,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     }
     if (nb_activates == 0)
         return false;
-    for (UINT32 i = 0; i < nb_activates; ++i) {
+    for (int i = 0; i < (int)nb_activates; ++i) {
         if (i != activate_index_ && activate_index_ >= 0)
             continue;
         if (i > activate_index_ && activate_index_ >= 0)
@@ -173,6 +173,10 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
         ComPtr<IMFAttributes> attr;
         if (SUCCEEDED(mft_->GetAttributes(&attr))) {
             // TODO: what about using eventgenerator anyway
+            // async requires: IMFMediaEventGenerator, IMFShutdown
+            //MS_WARN(attr->SetUINT32(MF_TRANSFORM_ASYNC, TRUE));
+            //MS_WARN(attr->SetUINT32(MF_TRANSFORM_ASYNC_UNLOCK, TRUE));
+            // TODO: MFT_SUPPORT_DYNAMIC_FORMAT_CHANGE must be true for async
             std::clog << "Selected MFT attributes:" << std::endl;
             MF::dump(attr.Get());
         }

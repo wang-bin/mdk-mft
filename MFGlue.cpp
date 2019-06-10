@@ -7,12 +7,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-//#ifdef _MSC_VER
-# pragma push_macro("_WIN32_WINNT")
-# if _WIN32_WINNT < 0x0A00 // MFT_ENUM_HARDWARE_VENDOR_ID_Attribute
-#   undef _WIN32_WINNT
-#   define _WIN32_WINNT 0x0A00
-# endif
 #include "MFGlue.h"
 #include "mdk/Buffer.h"
 #include "mdk/MediaInfo.h"
@@ -23,7 +17,6 @@
 #include <sstream>
 #include "cppcompat/cstdio.hpp"
 #include "base/log.h"
-# pragma pop_macro("_WIN32_WINNT")
 
 MDK_NS_BEGIN
 namespace MF {
@@ -141,23 +134,23 @@ public:
     HRESULT STDMETHODCALLTYPE Lock(BYTE **ppbBuffer, _Out_opt_  DWORD *pcbMaxLength, _Out_opt_  DWORD *pcbCurrentLength) override {
         *ppbBuffer = buf_->data();
         if (pcbMaxLength)
-            *pcbMaxLength = buf_->size();
+            *pcbMaxLength = (DWORD)buf_->size();
         if (pcbCurrentLength)
-            *pcbCurrentLength = buf_->size();
+            *pcbCurrentLength = (DWORD)buf_->size();
         return S_OK;
     }
 
     HRESULT STDMETHODCALLTYPE Unlock() override {return S_OK;}
 
     HRESULT STDMETHODCALLTYPE GetCurrentLength(_Out_  DWORD *pcbCurrentLength) override {
-        *pcbCurrentLength = buf_->size();
+        *pcbCurrentLength = (DWORD)buf_->size();
         return S_OK;
     }
 
     HRESULT STDMETHODCALLTYPE SetCurrentLength(DWORD cbCurrentLength) override {return S_OK;}
 
     HRESULT STDMETHODCALLTYPE GetMaxLength(_Out_  DWORD *pcbMaxLength) override {
-        *pcbMaxLength = buf_->size();
+        *pcbMaxLength = (DWORD)buf_->size();
         return S_OK;
     }
 };
@@ -171,11 +164,11 @@ ComPtr<IMFMediaBuffer> from(BufferRef buf, int align)
     if (((intptr_t)buf->constData() & (a-1)) == 0)
         return Make<MFMediaBufferView>(buf);
 #endif
-    MS_ENSURE(MFCreateAlignedMemoryBuffer(buf->size(), a - 1, &b), nullptr);
+    MS_ENSURE(MFCreateAlignedMemoryBuffer((DWORD)buf->size(), a - 1, &b), nullptr);
     BYTE* ptr = nullptr;
     MS_ENSURE(b->Lock(&ptr, nullptr, nullptr), nullptr);
     memcpy(ptr, buf->constData(), buf->size());
-    MS_ENSURE(b->SetCurrentLength(buf->size()), nullptr); // necessary?
+    MS_ENSURE(b->SetCurrentLength((DWORD)buf->size()), nullptr); // necessary?
     b->Unlock();
     return b;
 }
@@ -237,8 +230,8 @@ const CLSID* codec_for(const std::string& name, MediaType type)
         {"wmav2", &MFAudioFormat_WMAudioV8},
         {"wmapro", &MFAudioFormat_WMAudioV9},
         {"wmalossless", &MFAudioFormat_WMAudio_Lossless},
-        {"flac", &MFAudioFormat_FLAC}, //win10+
-        {"opus", &MFAudioFormat_Opus}, //win10+
+        //{"flac", &MFAudioFormat_FLAC}, //win10+
+        //{"opus", &MFAudioFormat_Opus}, //win10+
         // flac, ddp, alac, opus, amrnb
     };
     static const codec_id_map vcodec_id{
@@ -274,22 +267,22 @@ void dump(IMFAttributes* a)
     MS_ENSURE(a->GetCount(&count));
     std::stringstream ss;
     ss << count << " attributes: ";
-    for (int i = 0; i < count; ++i) {
+    for (UINT32 i = 0; i < count; ++i) {
         GUID key;
         char detail[80] = {0};
         MS_ENSURE(a->GetItemByIndex(i, &key, nullptr));
         if (key == MF_MT_AUDIO_CHANNEL_MASK) {
             UINT32 v;
             MS_ENSURE(a->GetUINT32(key, &v));
-            snprintf(detail, sizeof(detail), " (0x%x)", (unsigned)v);
+            std::snprintf(detail, sizeof(detail), " (0x%x)", (unsigned)v);
         } else if (key == MF_MT_FRAME_SIZE) {
             UINT32 w, h;
             MS_ENSURE(MFGetAttributeSize(a, MF_MT_FRAME_SIZE, &w, &h));
-            snprintf(detail, sizeof(detail), " (%dx%d)", (int)w, (int)h);
+            std::snprintf(detail, sizeof(detail), " (%dx%d)", (int)w, (int)h);
         } else if (key == MF_MT_PIXEL_ASPECT_RATIO || key == MF_MT_FRAME_RATE) {
             UINT32 num, den;
             MS_ENSURE(MFGetAttributeRatio(a, key, &num, &den));
-            snprintf(detail, sizeof(detail), " (%d:%d)", (int)num, (int)den);
+            std::snprintf(detail, sizeof(detail), " (%d:%d)", (int)num, (int)den);
         }
         ss << to_name(key) << "=";
         MF_ATTRIBUTE_TYPE type;
@@ -316,7 +309,7 @@ void dump(IMFAttributes* a)
             wchar_t wv[512]; // being lazy here
             MS_ENSURE(a->GetString(key, wv, sizeof(wv), nullptr));
             char cwv[512]{};
-            snprintf(cwv, sizeof(cwv), "%ls", wv);
+            std::snprintf(cwv, sizeof(cwv), "%ls", wv);
             ss << cwv;
             break;
         }
@@ -331,7 +324,7 @@ void dump(IMFAttributes* a)
             MS_ENSURE(a->GetBlobSize(key, &sz));
             ss << "(" << sz << ")";
             std::vector<UINT8> buffer(sz, 0);
-            MS_ENSURE(a->GetBlob(key, &buffer[0], buffer.size(), &sz));
+            MS_ENSURE(a->GetBlob(key, &buffer[0], (UINT32)buffer.size(), &sz));
             ss << std::hex;
             for (const auto x : buffer)
                 ss << " " << (int)x;
