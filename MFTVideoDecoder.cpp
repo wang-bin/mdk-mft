@@ -335,7 +335,7 @@ bool MFTVideoDecoder::onOutput(ComPtr<IMFSample> sample)
     if (!MF::to(frame, sample, (int)stride_x_, (int)stride_y_, copy_))
         return false;
     ColorSpace cs;
-    frame_param_.colorSpace(&cs);
+    frame_param_.colorSpace(&cs, false);
     frame.setColorSpace(cs, true);
     frameDecoded(frame);
     return true;
