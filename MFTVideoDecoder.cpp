@@ -60,6 +60,10 @@ using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
 {
 public:
+    MFTVideoDecoder() {
+        useSamplePool(std::stoi(property("pool", "1")));
+        copy_ = std::stoi(property("copy", "0"));
+    }
     const char* name() const override {return "MFT";}
     bool open() override;
     bool close() override;
@@ -70,6 +74,13 @@ public:
     }
     bool decode(const Packet& pkt) override { return decodePacket(pkt); }
 private:
+    void onPropertyChanged(const std::string& key, const std::string& value) override {
+        if (key == "copy")
+            copy_ = std::stoi(value);
+        else if (key == "pool")
+            useSamplePool(std::stoi(value));
+    }
+
     bool onMFTCreated(ComPtr<IMFTransform> mft) override;
     bool testConstraints(ComPtr<IMFTransform> mft);
     uint8_t* filter(uint8_t* data, size_t* size) override;
@@ -132,8 +143,6 @@ bool MFTVideoDecoder::open()
     }
     if (!openCodec(MediaType::Video, *codec_id_))
         return false;
-    useSamplePool(std::stoi(property("pool", "1")));
-    copy_ = std::stoi(property("copy", "0"));
     std::clog << "MFT decoder is ready" << std::endl;
     onOpen();
     return true;

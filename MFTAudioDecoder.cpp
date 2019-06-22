@@ -30,6 +30,10 @@ using namespace std;
 class MFTAudioDecoder final : public AudioDecoder, protected MFTCodec
 {
 public:
+    MFTAudioDecoder() {
+        useSamplePool(std::stoi(property("pool", "1")));
+        copy_ = std::stoi(property("copy", "0"));
+    }
     const char* name() const override {return "MFT";}
     bool open() override;
     bool close() override;
@@ -40,8 +44,14 @@ public:
     }
     bool decode(const Packet& pkt) override { return decodePacket(pkt); }
 private:
-    bool onMFTCreated(ComPtr<IMFTransform> mft) override;
+    void onPropertyChanged(const std::string& key, const std::string& value) override {
+        if (key == "copy")
+            copy_ = std::stoi(value);
+        else if (key == "pool")
+            useSamplePool(std::stoi(value));
+    }
 
+    bool onMFTCreated(ComPtr<IMFTransform> mft) override;
     virtual bool setInputTypeAttributes(IMFAttributes* attr) override;
     virtual bool setOutputTypeAttributes(IMFAttributes* attr) override;
     virtual int getInputTypeScore(IMFAttributes* attr) override;
@@ -64,8 +74,6 @@ bool MFTAudioDecoder::open()
     }
     if (!openCodec(MediaType::Audio, *codec_id_))
         return false;
-    useSamplePool(std::stoi(property("pool", "1")));
-    copy_ = std::stoi(property("copy", "0"));
     std::clog << this << "MFT decoder is ready" << std::endl;
     onOpen();
     return true;
