@@ -132,13 +132,21 @@ bool MFTVideoDecoder::open()
         }
         // chroma subsample?
     }
+    nal_size_ = 0;
     // http://www.howtobuildsoftware.com/index.php/how-do/9vN/c-windows-ms-media-foundation-mf-doesnt-play-video-from-my-source
     if (!par.extra.empty()) {
         auto extra = par.extra;
-        if (strstr(par.codec.data(), "h264")) { // & if avcC?
-            csd_ = avcc_to_annexb_extradata(extra.data(), (int)extra.size(), &csd_size_, &nal_size_);
-        } else if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265")) {
-            csd_ = hvcc_to_annexb_extradata(extra.data(), (int)extra.size(), &csd_size_, &nal_size_);
+        typedef uint8_t* (*to_annexb_t)(const uint8_t* extradata, int extrasize, int* out_size, int* nalu_field_size);
+        to_annexb_t to_annexb_func = nullptr;
+        if (strstr(par.codec.data(), "h264"))
+            to_annexb_func = avcc_to_annexb_extradata;
+        else if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265"))
+            to_annexb_func = hvcc_to_annexb_extradata;
+        if (to_annexb_func) {
+            if (!is_annexb(extra.data(), (int)extra.size())) {
+                std::clog << "try to convert extra data to annexb" << std::endl;
+                csd_ = to_annexb_func(extra.data(), (int)extra.size(), &csd_size_, &nal_size_);
+            }
         }
     }
     if (!openCodec(MediaType::Video, *codec_id_))
