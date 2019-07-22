@@ -25,7 +25,6 @@
 MDK_NS_BEGIN
 namespace MF {
 
-// TODO: move to MFAudioGlue.cpp
 bool to(AudioFormat::ChannelMap& cm, UINT32 cl)
 {
     cm = uint64_t(cl);
@@ -47,6 +46,8 @@ bool to(AudioFormat& af, const IMFAttributes* ca)
         is_uint = v == 8;
     } else if (subtype == MFAudioFormat_Float) {
         is_flt = true;
+    } else { // spdif pass through? not supported yet
+        return false;
     }
     af.setSampleFormat(AudioFormat::make(v/8, is_flt, is_uint, false));
 
