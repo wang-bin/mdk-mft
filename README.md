@@ -3,6 +3,6 @@
 
 - D3D11, DXVA accelerated
 - hevc, vp8/9, h264 decoder
-- aac, mp3 decoder
+- aac, mp3, dolby decoder
 - sample pool for software decoder
 - minimize data copy for software decoder
