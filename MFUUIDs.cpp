@@ -39,6 +39,18 @@ namespace MF {
 std::string to_string(const GUID& id)
 {
     char v[64]{};
+    const auto fcc = to_fourcc(id);
+    if (fcc) {
+        for (int i = 0; i < 4; ++i) {
+            auto x = (fcc>>(8*i)) & 0xff;
+            if (!x)
+                goto print_uuid;
+            v[i+1] = x;
+        }
+        v[0] = v[5] = '\'';
+        return v;
+    }
+print_uuid:
     snprintf(&v[0], sizeof(v), "{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}"
               , (unsigned)id.Data1, id.Data2, id.Data3
               , id.Data4[0], id.Data4[1], id.Data4[2], id.Data4[3], id.Data4[4], id.Data4[5], id.Data4[6], id.Data4[7]);

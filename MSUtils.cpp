@@ -3,7 +3,7 @@
  */
 #include "MSUtils.h"
 
-// xxxxxxxx-0000-0010-8000-00AA00389B71
+// xxxxxxxx-0000-0010-8000-00AA00389B71. https://docs.microsoft.com/en-us/windows/win32/directshow/fourcc-codes
 uint32_t to_fourcc(const GUID id)
 {
     if (id.Data2 == 0 && id.Data3 == 0x0010
