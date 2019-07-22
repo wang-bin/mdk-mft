@@ -24,16 +24,13 @@
 #include <iostream>
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
+// properties: pool=1(0, 1), copy=0(0, 1, 2), in_type=index(or -1), out_type=index(or -1)
 
 MDK_NS_BEGIN
 using namespace std;
 class MFTAudioDecoder final : public AudioDecoder, protected MFTCodec
 {
 public:
-    MFTAudioDecoder() {
-        useSamplePool(std::stoi(property("pool", "1")));
-        copy_ = std::stoi(property("copy", "0"));
-    }
     const char* name() const override {return "MFT";}
     bool open() override;
     bool close() override;
@@ -66,6 +63,11 @@ private:
 
 bool MFTAudioDecoder::open()
 {
+    useSamplePool(std::stoi(property("pool", "1")));
+    copy_ = std::stoi(property("copy", "0"));
+    setInputTypeIndex(std::stoi(property("in_type", "-1")));
+    setOutputTypeIndex(std::stoi(property("out_type", "-1")));
+
     const auto& par = parameters();
     codec_id_ = MF::codec_for(par.codec, MediaType::Audio);
     if (!codec_id_) {

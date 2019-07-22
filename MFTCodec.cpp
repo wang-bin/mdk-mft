@@ -202,7 +202,7 @@ bool MFTCodec::destroyMFT()
 using GetAvailableType = std::function<HRESULT(DWORD dwOutputStreamID, DWORD dwTypeIndex, IMFMediaType **ppType)>;
 using GetScore = std::function<int(IMFAttributes*)>; // return 0(the same value) to get the 1st one, for MFT_DECODER_EXPOSE_OUTPUT_TYPES_IN_NATIVE_ORDER
 // for in/out audio/video dec/enc
-ComPtr<IMFMediaType> SelectType(DWORD stream_id, GetAvailableType getAvail, GetScore getScore, bool* later)
+ComPtr<IMFMediaType> SelectType(DWORD stream_id, GetAvailableType getAvail, GetScore getScore, int idx, bool* later)
 {
     *later = false;
     ComPtr<IMFMediaType> type;
@@ -226,8 +226,13 @@ ComPtr<IMFMediaType> SelectType(DWORD stream_id, GetAvailableType getAvail, GetS
         MS_ENSURE(tmp.As(&attr), nullptr);
         MF::dump(attr.Get());
         int new_score = getScore(attr.Get());
-        if (new_score <= score)
-            continue;
+        if (idx >= 0) {
+            if (idx != i)
+                continue;
+        } else {
+            if (new_score <= score)
+                continue;
+        }
         score = new_score;
         type = tmp;
         index = i;
@@ -243,7 +248,7 @@ ComPtr<IMFMediaType> MFTCodec::selectInputType(DWORD stream_id, bool* later)
                                         return mft_->GetInputAvailableType(dwOutputStreamID, dwTypeIndex, ppType);
                                     }, [this](IMFAttributes* a){
                                         return getInputTypeScore(a);
-                                    }, later); // optional
+                                    }, in_type_idx_, later); // optional
     if (*later) {
         std::clog << "at least 1 output type must be set first" << std::endl;
         return nullptr;
@@ -281,7 +286,7 @@ ComPtr<IMFMediaType> MFTCodec::selectOutputType(DWORD stream_id, bool* later)
                                         return mft_->GetOutputAvailableType(dwOutputStreamID, dwTypeIndex, ppType);
                                     }, [this](IMFAttributes* a){
                                         return getOutputTypeScore(a);
-                                    }, later); // optional
+                                    }, out_type_idx_, later); // optional
     if (*later) {
         std::clog << "at least 1 input type must be set first" << std::endl;
         return nullptr;

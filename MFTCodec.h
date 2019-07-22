@@ -25,6 +25,12 @@ protected:
     bool closeCodec();
     bool flushCodec();
     bool decodePacket(const Packet& pkt);
+    void setInputTypeIndex(int index = -1) {
+        in_type_idx_ = index;
+    }
+    void setOutputTypeIndex(int index = -1) {
+        out_type_idx_ = index;
+    }
 private:
     bool createMFT(MediaType type, const CLSID& codec_id);
     virtual bool onMFTCreated(ComPtr<IMFTransform> /*mft*/) {return true;}
@@ -33,10 +39,10 @@ private:
     // bitstream/packet filter
     // return nullptr if filter in place, otherwise allocated data is returned and size is modified. no need to free the data
     virtual uint8_t* filter(uint8_t* /*data*/, size_t* /*size*/) {return nullptr;}
-    virtual bool setInputTypeAttributes(IMFAttributes* attr) {return true;}
-    virtual bool setOutputTypeAttributes(IMFAttributes* attr) {return true;}
-    virtual int getInputTypeScore(IMFAttributes* attr) {return -1;}
-    virtual int getOutputTypeScore(IMFAttributes* attr) {return -1;}
+    virtual bool setInputTypeAttributes(IMFAttributes*) {return true;}
+    virtual bool setOutputTypeAttributes(IMFAttributes*) {return true;}
+    virtual int getInputTypeScore(IMFAttributes*) {return -1;}
+    virtual int getOutputTypeScore(IMFAttributes*) {return -1;}
     virtual bool onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> type) = 0;
     virtual bool onOutput(ComPtr<IMFSample> sample) = 0;
     ComPtr<IMFSample> getOutSample(); // get an output sample from pool, or create directly.
@@ -58,6 +64,8 @@ private:
     DWORD id_out_ = 0;
     MFT_INPUT_STREAM_INFO info_in_;
     MFT_OUTPUT_STREAM_INFO info_out_;
+    int in_type_idx_ = -1;
+    int out_type_idx_ = -1;
 
     using SamplePoolRef = std::shared_ptr<SamplePool>;
     ComPtr<IMFAsyncCallback> pool_cb_; // double-pool for stream(parameter) change to clear samples outside the pool?
