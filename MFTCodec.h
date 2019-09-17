@@ -13,7 +13,7 @@
 #include <iostream>
 
 MDK_NS_BEGIN
-class MFTCodec
+class MDK_NOVTBL MFTCodec
 {
 protected:
     MFTCodec();
