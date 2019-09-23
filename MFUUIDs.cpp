@@ -35,6 +35,10 @@ namespace std
 
 MDK_NS_BEGIN
 namespace MF {
+
+// d3d11.h
+// 657c3e17-3341-41a7-9ae6-37a9d699851f: D3D11_DECODER_PROFILE_xxxx
+
 // StringFromCLSID: wstring, upper case, with {} around. RpcStringFreeA is not declared for uwp?
 std::string to_string(const GUID& id)
 {
@@ -99,6 +103,10 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MF_MT_INTERLACE_MODE),
     GUID_KV(MF_MT_USER_DATA),
     GUID_KV(MF_MT_PIXEL_ASPECT_RATIO),
+    GUID_KV(MF_MT_MAX_LUMINANCE_LEVEL),
+    GUID_KV(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL),
+    GUID_KV(MF_MT_MAX_MASTERING_LUMINANCE),
+    GUID_KV(MF_MT_MIN_MASTERING_LUMINANCE),
     // MFT_TRANSFORM_CLSID_Attribute, mfidl.h, win10
     GUID_KV(CLSID_MSH264DecoderMFT),
     GUID_KV(CLSID_MSH264EncoderMFT),
@@ -169,7 +177,6 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MF_MT_AUDIO_WMADRC_PEAKTARGET),
     GUID_KV(MF_MT_AVG_BIT_ERROR_RATE),
     GUID_KV(MF_MT_AVG_BITRATE),
-    //GUID_KV(MF_MT_CUSTOM_VIDEO_PRIMARIES), // desktop
     GUID_KV(MF_MT_DEFAULT_STRIDE),
     GUID_KV(MF_MT_DRM_FLAGS),
     GUID_KV(MF_MT_FRAME_RATE),
@@ -244,6 +251,10 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MFT_DECODER_EXPOSE_OUTPUT_TYPES_IN_NATIVE_ORDER),
     GUID_KV(MFT_DECODER_QUALITY_MANAGEMENT_CUSTOM_CONTROL),
     GUID_KV(MFSampleExtension_CleanPoint),
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_GAMES)
+    GUID_KV(MF_MT_ORIGINAL_4CC),
+    GUID_KV(MF_MT_CUSTOM_VIDEO_PRIMARIES),
+#endif /* WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_GAMES) */
 };
 
 std::string to_name(const GUID& id)
