@@ -54,7 +54,7 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
-// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1)
+// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1)
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -123,7 +123,7 @@ bool MFTVideoDecoder::open()
     // https://docs.microsoft.com/en-us/windows/desktop/medfound/h-264-video-decoder#format-constraints
     // TODO: other codecs
     if (*codec_id_ == MFVideoFormat_H264) {
-        if (par.profile > 100) {
+        if (par.profile > 100) { // TODO: property to ignore profile and level
             std::clog << "H264 profile is not supported by MFT. Max is High(100)" << std::endl;
             return false;
         }
@@ -214,8 +214,22 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
     // https://docs.microsoft.com/zh-cn/windows/desktop/DirectShow/codec-api-properties
     // or ICodecAPI.SetValue(, &VARIANT{.vt=VT_UI4, .uintVal=1})
     MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoAcceleration_H264, 1));
-    // faster but lower quality. h264 for win8+
-    MS_WARN(a->SetUINT32(CODECAPI_AVLowLatencyMode, 1)); // .vt = VT_BOOL, .boolVal = VARIANT_TRUE fails
+    /* low latency:
+        faster but lower quality. h264 for win8+
+        no b-frame reordering. https://docs.microsoft.com/en-us/windows/win32/medfound/codecapi-avlowlatencymode?redirectedfrom=MSDN#remarks
+        and many frames can be dropped by renderer because of bad pts
+       if disabled:
+        - stuck to decode some videos after seek
+        - can't decode frames near EOS
+        - too large latency on some devices, so video becomes stutter
+       seems disabling low latency is required iff codec is hevc(depending on mft plugin?)
+    */
+    const auto& par = parameters();
+    bool low_latency = true;
+    if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265"))
+        low_latency = false;
+    if (std::stoi(property("low_latency", std::to_string(low_latency))))
+        MS_WARN(a->SetUINT32(CODECAPI_AVLowLatencyMode, 1)); // .vt = VT_BOOL, .boolVal = VARIANT_TRUE fails
     return true;
 }
 
