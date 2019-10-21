@@ -54,7 +54,7 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
-// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1)
+// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1)
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -123,11 +123,11 @@ bool MFTVideoDecoder::open()
     // https://docs.microsoft.com/en-us/windows/desktop/medfound/h-264-video-decoder#format-constraints
     // TODO: other codecs
     if (*codec_id_ == MFVideoFormat_H264) {
-        if (par.profile > 100) { // TODO: property to ignore profile and level
+        if (par.profile > 100 && !std::stoi(property("ignore_profile", "0"))) { // TODO: property to ignore profile and level
             std::clog << "H264 profile is not supported by MFT. Max is High(100)" << std::endl;
             return false;
         }
-        if (par.level > 51) {
+        if (par.level > 51 && !std::stoi(property("ignore_level", "0"))) {
             std::clog << "H264 level is not supported by MFT. Max is 5.1" << std::endl;
             return false;
         }
