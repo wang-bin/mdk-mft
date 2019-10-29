@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018~2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <string_view>
 #include "cppcompat/cstdio.hpp"
 #include "base/log.h"
 
@@ -215,7 +216,7 @@ void to(Packet& pkt, ComPtr<IMFSample> mfpkt)
 
 const CLSID* codec_for(const std::string& name, MediaType type)
 {
-    using codec_id_map = std::unordered_map<std::string, const CLSID*>;
+    using codec_id_map = std::unordered_map<std::string_view, const CLSID*>;
     // https://gix.github.io/media-types
     // TODO: MediaInfo codec fourcc(index_sequence)? enum forcc<char*>::value, static_assert([4]==0)
     static const codec_id_map acodec_id{
@@ -232,7 +233,7 @@ const CLSID* codec_for(const std::string& name, MediaType type)
         {"wmalossless", &MFAudioFormat_WMAudio_Lossless},
         //{"flac", &MFAudioFormat_FLAC}, //win10+
         //{"opus", &MFAudioFormat_Opus}, //win10+
-        // flac, ddp, alac, opus, amrnb
+        // flac, alac, opus, amrnb/wb/wp, dts, msp1, qcelp
     };
     static const codec_id_map vcodec_id{
         {"h264", &MFVideoFormat_H264},
