@@ -55,6 +55,7 @@ Compare with FFmpeg D3D11/DXVA:
 # pragma pop_macro("_WIN32_WINNT")
 
 // properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1)
+// feature_level=11.1(9.1,9.2,1.3,10.0,10.1,11.0,12.0,12.1)
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -175,6 +176,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         return false;
     use_d3d_ = std::stoi(property("d3d", "0"));
     uint32_t adapter = std::stoi(property("adapter", "0"));
+    auto fl = D3D11::to_feature_level(property("feature_level", "11.1").data());
     ComPtr<IMFAttributes> a;
     MS_ENSURE(mft->GetAttributes(&a), false);
     // d3d: https://docs.microsoft.com/en-us/windows/desktop/medfound/direct3d-aware-mfts
@@ -193,7 +195,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 #endif
     if (use_d3d_ == 11)
         MS_WARN(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware));
-    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter)) {
+    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter, fl)) {
         auto mgr = mgr11_.create();
         if (mgr) {
             HRESULT hr = S_OK;
