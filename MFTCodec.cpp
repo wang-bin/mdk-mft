@@ -362,8 +362,6 @@ bool MFTCodec::decodePacket(const Packet& pkt)
             filtered.buffer = std::make_shared<BufferView>(new_data, size);
             data = new_data;
         }
-    } else {
-        filtered.buffer = pkt.buffer;
     }
     ComPtr<IMFSample> sample = MF::from(filtered, info_in_.cbAlignment);
     if (!sample)
@@ -385,7 +383,11 @@ bool MFTCodec::decodePacket(const Packet& pkt)
         return true;
     }
     while (processOutput()) {} // get output ASAP. https://docs.microsoft.com/zh-cn/windows/desktop/medfound/basic-mft-processing-model#process-data
-    return !pkt.isEnd();
+    if (!(info_in_.dwFlags & MFT_INPUT_STREAM_DOES_NOT_ADDREF)) {// ProcessInput() may but not always hold a reference count on the input samples
+        if (sample_in_.Get() != sample.Get()) // FIXME: ProcessInput() may release the sample and MFCreateSample may reuse last one even if old sample is not released(keep by user)
+            sample_in_.Attach(sample.Get());
+    }
+	return !pkt.isEnd();
 }
 
 ComPtr<IMFSample> MFTCodec::getOutSample()
@@ -400,7 +402,7 @@ ComPtr<IMFSample> MFTCodec::getOutSample()
 #if !(MS_WINRT+0)
     typedef HRESULT (STDAPICALLTYPE *MFCreateTrackedSample_fn)(IMFTrackedSample**);
     static HMODULE mfplat_dll = GetModuleHandleW(L"mfplat.dll");
-    static auto MFCreateTrackedSample = (MFCreateTrackedSample_fn)GetProcAddress(mfplat_dll, "MFCreateTrackedSample");
+    static auto MFCreateTrackedSample = (MFCreateTrackedSample_fn)GetProcAddress(mfplat_dll, "MFCreateTrackedSample"); // win8, phone8.1
     if (!MFCreateTrackedSample && use_pool_) {
         use_pool_ = false;
         std::clog << "MFCreateTrackedSample is not found in mfplat.dll. can not use IMFTrackedSample to reduce copy" << std::endl;
@@ -443,7 +445,7 @@ bool MFTCodec::processOutput()
     // MFCreateVideoSampleFromSurface. additional ref is added to safe reuse the sample. https://msdn.microsoft.com/en-us/library/windows/desktop/ms697026(v=vs.85).aspx
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-dxva-2-0-in-media-foundation#decoding
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-direct3d-11-video-decoding-in-media-foundation#decoding
-    ComPtr<IMFTrackedSample> tracked;
+    ComPtr<IMFTrackedSample> tracked; // d3d11 or dxva2 provided by mft. or provided by our pool
     // if not provided by mft and need more input, out.pSample is null
     if (out.pSample && SUCCEEDED(out.pSample->QueryInterface(IID_PPV_ARGS(&tracked)))) {
         sample.Attach(out.pSample); // provided by mft or pool. DO NOT Release() pSample here. Otherwise TrackedSample callback is called and sample is recycled.
