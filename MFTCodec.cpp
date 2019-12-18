@@ -384,8 +384,7 @@ bool MFTCodec::decodePacket(const Packet& pkt)
     }
     while (processOutput()) {} // get output ASAP. https://docs.microsoft.com/zh-cn/windows/desktop/medfound/basic-mft-processing-model#process-data
     if (!(info_in_.dwFlags & MFT_INPUT_STREAM_DOES_NOT_ADDREF)) {// ProcessInput() may but not always hold a reference count on the input samples
-        if (sample_in_.Get() != sample.Get()) // FIXME: ProcessInput() may release the sample and MFCreateSample may reuse last one even if old sample is not released(keep by user)
-            sample_in_.Attach(sample.Get());
+// mft bug? ProcessInput() may release the sample and MFCreateSample may reuse last one(not IMFTrackedSample) even if old sample is not released(keep by user)
     }
 	return !pkt.isEnd();
 }

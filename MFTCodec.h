@@ -66,7 +66,6 @@ private:
     MFT_OUTPUT_STREAM_INFO info_out_;
     int in_type_idx_ = -1;
     int out_type_idx_ = -1;
-    ComPtr<IMFSample> sample_in_;
 
     using SamplePoolRef = std::shared_ptr<SamplePool>;
     ComPtr<IMFAsyncCallback> pool_cb_; // double-pool for stream(parameter) change to clear samples outside the pool?
