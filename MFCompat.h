@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -14,6 +14,7 @@
 //# pragma push_macro("DEFINE_GUID")
 #undef DEFINE_GUID
 #define DEFINE_GUID(name,l,w1,w2,b1,b2,b3,b4,b5,b6,b7,b8) EXTERN_C const GUID DECLSPEC_SELECTANY name = { l, w1, w2, { b1, b2, b3, b4, b5, b6, b7, b8 } }
+
 // codecapi.h CODECAPI_AVDec/Enc*
 ////////  codecapi.h BEGIN
 DEFINE_GUID(CODECAPI_AVDecVideoAcceleration_H264, 0xf7db8a2f, 0x4f48, 0x4ee8, 0xae, 0x31, 0x8b, 0x6e, 0xbe, 0x55, 0x8a, 0xe2);
@@ -46,7 +47,7 @@ DEFINE_MEDIATYPE_GUID( MFAudioFormat_FLAC,              WAVE_FORMAT_FLAC );
 DEFINE_MEDIATYPE_GUID( MFAudioFormat_ALAC,              WAVE_FORMAT_ALAC );
 DEFINE_MEDIATYPE_GUID( MFAudioFormat_Opus,              WAVE_FORMAT_OPUS );
 //#endif
-// These audio types are not derived from an existing wFormatTag 
+// These audio types are not derived from an existing wFormatTag
 DEFINE_GUID(MFAudioFormat_Dolby_AC3, // == MEDIASUBTYPE_DOLBY_AC3 defined in ksuuids.h
 0xe06d802c, 0xdb46, 0x11cf, 0xb4, 0xd1, 0x00, 0x80, 0x05f, 0x6c, 0xbb, 0xea);
 DEFINE_GUID(MFAudioFormat_Dolby_DDPlus, // == MEDIASUBTYPE_DOLBY_DDPLUS defined in wmcodecdsp.h
@@ -55,6 +56,9 @@ DEFINE_GUID(MFAudioFormat_Vorbis,      // {8D2FD10B-5841-4a6b-8905-588FEC1ADED9}
 0x8D2FD10B, 0x5841, 0x4a6b, 0x89, 0x05, 0x58, 0x8F, 0xEC, 0x1A, 0xDE, 0xD9);
 
 DEFINE_MEDIATYPE_GUID(MFVideoFormat_MP42, 0x3234504D);
+DEFINE_MEDIATYPE_GUID(MFVideoFormat_L8,        50);
+DEFINE_MEDIATYPE_GUID(MFVideoFormat_L16,       81);
+
 DEFINE_GUID(MF_MT_VIDEO_ROTATION, 0xc380465d, 0x2271, 0x428c, 0x9b, 0x83, 0xec, 0xea, 0x3b, 0x4a, 0x85, 0xc1);
 // desktop|game
 DEFINE_GUID(MF_MT_CUSTOM_VIDEO_PRIMARIES, 0x47537213, 0x8cfb, 0x4722, 0xaa, 0x34, 0xfb, 0xc9, 0xe2, 0x4d, 0x77, 0xb8);
@@ -115,15 +119,33 @@ MIDL_INTERFACE("245BF8E9-0755-40f7-88A5-AE0F18D55E17")
 IMFTrackedSample : public IUnknown
 {
 public:
-    virtual HRESULT STDMETHODCALLTYPE SetAllocator( 
-        /* [annotation][in] */ 
+    virtual HRESULT STDMETHODCALLTYPE SetAllocator(
+        /* [annotation][in] */
         _In_  IMFAsyncCallback *pSampleAllocator,
         /* [unique][in] */ IUnknown *pUnkState) = 0;
-    
+
 };
 
 // TODO: IMFShutdown
 ////////  mfidl.h END
 
 //# pragma pop_macro("DEFINE_GUID")
+#endif
+// uuids not defined in sdk: https://www.magnumdb.com/search?q=value%3A%223341%22
+// find uuid name by value: dumpbin -all mfuuid.lib, RAW DATA field is uuid value in littel endian
+#define DEFINE_GUID_STATIC(name,l,w1,w2,b1,b2,b3,b4,b5,b6,b7,b8) EXTERN_C const GUID DECLSPEC_SELECTANY name = { l, w1, w2, { b1, b2, b3, b4, b5, b6, b7, b8 } }
+// TODO: _uuid literal
+DEFINE_GUID_STATIC(MF_MT_D3D_DECODE_PROFILE_GUID, 0x657c3e17, 0x3341, 0x41a7, 0x9a, 0xe6, 0x37, 0xa9, 0xd6, 0x99, 0x85, 0x1f);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_PACKAGED_WINDOWS_SIGNED, 0x3c0fbe52, 0xd034, 0x4115, 0x99, 0x5d, 0x95, 0xb3, 0x56, 0xb9, 0x85, 0x5c);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_ABSOLUTE_DLLPATH, 0x7347c815, 0x79fc, 0x4ad9, 0x87, 0x7d, 0xac, 0xdf, 0x5f, 0x46, 0x68, 0x5e);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_PACKAGE_FULL_NAME, 0x957193ad, 0x9029, 0x4835, 0xa2, 0xf2, 0x3e, 0xc9, 0xae, 0x9b, 0xb6, 0xc8);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_PACKAGE_FAMILY_NAME, 0x9d8b61a8, 0x6bc8, 0x4bff, 0xb3, 0x1f, 0x3a, 0x31, 0x06, 0x0a, 0xfa, 0x3d);
+DEFINE_GUID_STATIC(MF_TELEMETRY_OBJECT_INSTANCE_ATTRIBUTE, 0xbb49bc51, 0x1810, 0x4c3a, 0xa9, 0xcf, 0xd5, 0x9c, 0x4e, 0x5b, 0x96, 0x22); // not defined in mfuuid.lib
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_ACTIVATABLE_CLASS_ID, 0xde106d30, 0x42fb, 0x4767, 0x80, 0x8d, 0x0f, 0xcc, 0x68, 0x11, 0xb0, 0xb9);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_PACKAGE_REG_NEEDED, 0xf9542f80, 0xd069, 0x4efe, 0xb3, 0x0d, 0x34, 0x55, 0x36, 0xf7, 0x6a, 0xaa);
+DEFINE_GUID_STATIC(MF_MEDIA_EXTENSION_WEB_PLATFORM_ALLOWED, 0xf9a1ef38, 0xf61e, 0x42e6, 0x87, 0xb3, 0x30, 0x94, 0x38, 0xf9, 0xac, 0x67);
+DEFINE_GUID_STATIC(MF_INPROCDLL_LIFETIME_MANAGER, 0x592a2a5a, 0xe797, 0x491a, 0x97, 0x38, 0xc0, 0x00, 0x7b, 0xe2, 0x8c, 0x52); // not defined in mfuuid.lib
+//KSDATAFORMAT_SUBTYPE_IEC61937_DOLBY_DIGITAL_PLUS, 0x0000000a, 0x0cea, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
+#if (WDK_NTDDI_VERSION < NTDDI_WIN10_RS3)
+DEFINE_MEDIATYPE_GUID(MFVideoFormat_AV1,        FCC('AV01'));
 #endif

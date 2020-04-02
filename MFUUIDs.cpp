@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -140,6 +140,9 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MFVideoFormat_WMV2),
     GUID_KV(MFVideoFormat_WMV3),
     GUID_KV(MFVideoFormat_WVC1),
+    GUID_KV(MFVideoFormat_AV1),
+    GUID_KV(MFVideoFormat_L8),
+    GUID_KV(MFVideoFormat_L16),
     GUID_KV(MFAudioFormat_Dolby_AC3),
     GUID_KV(MFAudioFormat_Dolby_DDPlus),
     GUID_KV(MFAudioFormat_AAC),
@@ -255,6 +258,17 @@ static const std::unordered_map<UUID,const char*> kIdNameMap{
     GUID_KV(MF_MT_ORIGINAL_4CC),
     GUID_KV(MF_MT_CUSTOM_VIDEO_PRIMARIES),
 #endif /* WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_GAMES) */
+
+    GUID_KV(MF_MT_D3D_DECODE_PROFILE_GUID),
+    GUID_KV(MF_MEDIA_EXTENSION_PACKAGED_WINDOWS_SIGNED),
+    GUID_KV(MF_MEDIA_EXTENSION_ABSOLUTE_DLLPATH),
+    GUID_KV(MF_MEDIA_EXTENSION_PACKAGE_FULL_NAME),
+    GUID_KV(MF_MEDIA_EXTENSION_PACKAGE_FAMILY_NAME),
+    GUID_KV(MF_TELEMETRY_OBJECT_INSTANCE_ATTRIBUTE),
+    GUID_KV(MF_MEDIA_EXTENSION_ACTIVATABLE_CLASS_ID),
+    GUID_KV(MF_MEDIA_EXTENSION_PACKAGE_REG_NEEDED),
+    GUID_KV(MF_MEDIA_EXTENSION_WEB_PLATFORM_ALLOWED),
+    GUID_KV(MF_INPROCDLL_LIFETIME_MANAGER),
 };
 
 std::string to_name(const GUID& id)
