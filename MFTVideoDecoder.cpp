@@ -54,7 +54,7 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
-// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1)
+// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=0(0,1 keyed mutex,-1 legacy)
 // feature_level=11.1(9.1,9.2,1.3,10.0,10.1,11.0,12.0,12.1)
 MDK_NS_BEGIN
 using namespace std;
@@ -345,10 +345,12 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
     if (use_d3d_ == 11 && pool_) {
         //MS_ENSURE(mft_->GetOutputStreamAttributes(streamId, &a), false);
         // win8 attributes
-        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , 1), false); // shared via keyed-mutex. FIXME: ProcessInput() error
-        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , 1), false); // shared via legacy mechanism
-        //MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE), false); // optional?
-        auto sr = std::stoi(property("shader_resource", "0"));
+        auto shared = std::stoi(property("shared", "0"));
+        if (shared > 0)
+            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , 1), false); // shared via keyed-mutex. FIXME: ProcessInput() error
+        else if (shared < 0)
+            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , 1), false); // shared via legacy mechanism // chrome media ccd2ba30c9d51983bb7676eda9851c372ace718d
+		auto sr = std::stoi(property("shader_resource", "0"));
         if (sr > 0) // hints for surfaces. applies iff MF_SA_D3D11_AWARE is TRUE
             MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_DECODER), false); // optional?
         // MF_SA_D3D11_USAGE
