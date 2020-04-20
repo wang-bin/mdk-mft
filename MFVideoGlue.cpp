@@ -2,7 +2,7 @@
  * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -61,6 +61,7 @@ static const struct {
     {MFVideoPrimaries_BT470_2_SysBG, ColorSpace::Primary::BT470BG},
     {MFVideoPrimaries_SMPTE170M, ColorSpace::Primary::SMPTE170M},
     {MFVideoPrimaries_SMPTE240M, ColorSpace::Primary::SMPTE240M},
+    {MFVideoPrimaries_SMPTE_C, ColorSpace::Primary::FILM},
     {MFVideoPrimaries_BT2020, ColorSpace::Primary::BT2020},
     {MFVideoPrimaries_XYZ, ColorSpace::Primary::SMPTEST428_1},
     {MFVideoPrimaries_EBU3213, ColorSpace::Primary::EBU_3213_E},
@@ -78,9 +79,10 @@ static const struct {
     {MFVideoTransFunc_sRGB, ColorSpace::Transfer::IEC61966_2_1},
     {MFVideoTransFunc_Log_100, ColorSpace::Transfer::LOG},
     {MFVideoTransFunc_Log_316, ColorSpace::Transfer::LOG_SQRT},
+    {MFVideoTransFunc_2084, ColorSpace::Transfer::PQ}, // PQ, BT2100
     {MFVideoTransFunc_HLG, ColorSpace::Transfer::ARIB_STD_B67},
     //{MFVideoTransFunc_2020_const,} // ColorSpace::Matrix::BT2020_CL
-    //{MFVideoTransFunc_2020,} //  ColorSpace::Matrix::BT2020_NCL
+    //{MFVideoTransFunc_2020, BT2020_10,BT2020_12} //  ColorSpace::Matrix::BT2020_NCL
 };
 
 static const struct {
