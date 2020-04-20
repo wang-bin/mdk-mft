@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -316,14 +316,15 @@ bool to(VideoFrame& frame, ComPtr<IMFSample> sample, int stride_x, int stride_y,
         ComPtr<IMFDXGIBuffer> dxgibuf; // MFCreateDXGISurfaceBuffer
         struct {
             ID3D11Texture2D* tex;
-            int index;
+            ComPtr<ID3D11Texture2D> sp; // auto release
         } texinfo;
         void* opaque = nullptr;
         if (SUCCEEDED(buf.As(&dxgibuf))) {
-            MS_WARN(dxgibuf->GetResource(IID_PPV_ARGS(&texinfo.tex)));
+            MS_WARN(dxgibuf->GetResource(IID_PPV_ARGS(&texinfo.sp)));
             UINT subidx = 0;
             MS_WARN(dxgibuf->GetSubresourceIndex(&subidx));
             texinfo.index = subidx;
+            texinfo.tex = texinfo.sp.Get();
             opaque = &texinfo;
         }
 #if (MS_API_DESKTOP+0)
