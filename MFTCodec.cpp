@@ -2,7 +2,7 @@
  * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -98,7 +98,11 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
         MFMediaType_Audio,
     };
     MFT_REGISTER_TYPE_INFO reg{kMajorType[std::underlying_type_t<MediaType>(mt)], codec_id};
-    UINT32 flags = 0; // TODO: vlc flags. default 0: MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT | MFT_ENUM_FLAG_SORTANDFILTER
+    UINT32 flags = 0;//
+    //            MFT_ENUM_FLAG_HARDWARE | // MUST be async. intel mjpeg decoder
+    //             MFT_ENUM_FLAG_SYNCMFT  |
+    //             MFT_ENUM_FLAG_LOCALMFT |
+    //             MFT_ENUM_FLAG_SORTANDFILTER; // TODO: vlc flags. default 0: MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_LOCALMFT | MFT_ENUM_FLAG_SORTANDFILTER
     // MFT_ENUM_FLAG_HARDWARE implies MFT_ENUM_FLAG_ASYNCMFT. usually with MFT_ENUM_FLAG_TRANSCODE_ONLY, and GetStreamIDs error
     IMFActivate **activates = nullptr;
     UINT32 nb_activates = 0;
@@ -124,6 +128,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     const auto category = kCategory[std::underlying_type_t<MediaType>(mt)];
     // optional KSCATEGORY_DATADECOMPRESSOR for hw
 #if !(MS_WINRT+0)
+// TODO: MFTGetInfo() to get in/out info
     typedef HRESULT (STDAPICALLTYPE *MFTEnumEx_fn)(GUID, UINT32, const MFT_REGISTER_TYPE_INFO*, const MFT_REGISTER_TYPE_INFO*, IMFActivate***, UINT32*);
     MFTEnumEx_fn MFTEnumEx = nullptr;
     HMODULE mfplat_dll = GetModuleHandleW(L"mfplat.dll");
@@ -154,15 +159,25 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
             MF::dump(aa.Get());
             wchar_t name[512]{};
             if (SUCCEEDED(activates[i]->GetString(MFT_FRIENDLY_NAME_Attribute, name, sizeof(name), nullptr))) // win7 attribute
-                printf("Activating: %ls\n", name);
+                std::clog << "Activating IMFActivate: " << name << std::endl;
             MS_WARN(activates[i]->ActivateObject(IID_IMFTransform, &mft_)); // __uuidof(IMFTransform), IID_PPV_ARGS(&mft)
         } else {
 #if !(MS_WINRT+0)
-            MS_WARN(CoCreateInstance(pCLSIDs[i], nullptr, CLSCTX_INPROC_SERVER, IID_IMFTransform, &mft_));
+            MS_WARN(CoCreateInstance(pCLSIDs[i], nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&mft_)));
 #endif
         }
         if (!mft_.Get())
-            continue;
+        {
+            ComPtr<IMFAttributes> attr;
+            if (SUCCEEDED(mft_->GetAttributes(&attr))) {
+                UINT32 bAsync = 0; // MFGetAttributeUINT32
+                if (SUCCEEDED(attr->GetUINT32(MF_TRANSFORM_ASYNC, &bAsync)) && bAsync) { // only iff MFT_ENUM_FLAG_HARDWARE is explicitly set
+                    std::clog << "Async mft is not supported yet" << std::endl;
+                    continue;
+                }
+            }
+        }
+
         if (onMFTCreated(mft_))
             break;
         mft_.Reset();
