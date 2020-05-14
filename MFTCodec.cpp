@@ -16,6 +16,7 @@
 #include "MFTCodec.h"
 #include "base/scope_atexit.h"
 #include "base/ByteArrayBuffer.h"
+#include "base/fmt.h"
 #include "base/mpsc_fifo.h"
 #include "cppcompat/type_traits.hpp"
 #include <algorithm>
@@ -159,7 +160,7 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
             MF::dump(aa.Get());
             wchar_t name[512]{};
             if (SUCCEEDED(activates[i]->GetString(MFT_FRIENDLY_NAME_Attribute, name, sizeof(name), nullptr))) // win7 attribute
-                std::clog << "Activating IMFActivate: " << name << std::endl;
+                std::clog << fmt::to_string("Activating IMFActivate: %ls", name) << std::endl;
             MS_WARN(activates[i]->ActivateObject(IID_IMFTransform, &mft_)); // __uuidof(IMFTransform), IID_PPV_ARGS(&mft)
         } else {
 #if !(MS_WINRT+0)
