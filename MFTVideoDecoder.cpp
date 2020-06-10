@@ -317,6 +317,8 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
 {
     ComPtr<IMFAttributes> a;
     MS_ENSURE(type.As(&a), false);
+	std::clog << __func__ << ": ";
+    MF::dump(a.Get()); // TODO: move to MFTCodec.cpp
     VideoFormat outfmt;
     if (!MF::to(outfmt, a.Get()))
         return false;
@@ -337,8 +339,13 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
     }
     ColorSpace cs;
     MF::to(cs, a.Get());
+	HDRMetadata hdr{};
+    MF::to(hdr, a.Get()); // frame level(hevc ts, mkv)?
     frame_param_ = VideoFrame(w, h, outfmt);
     frame_param_.setColorSpace(cs, true);
+	frame_param_.setMasteringMetadata(hdr.mastering, false);
+    frame_param_.setContentLightMetadata(hdr.content_light, false);
+    // TODO: interlace MF_MT_INTERLACE_MODE=>MFVideoInterlaceMode
     // TODO: MF_MT_PIXEL_ASPECT_RATIO, MF_MT_YUV_MATRIX, MF_MT_VIDEO_PRIMARIES, MF_MT_TRANSFER_FUNCTION, MF_MT_VIDEO_CHROMA_SITING, MF_MT_VIDEO_NOMINAL_RANGE
     // MFVideoPrimaries_BT709, MFVideoPrimaries_BT2020
     // MF_MT_TRANSFER_FUNCTION:  MFVideoTransFunc_2020(_const)
@@ -376,6 +383,11 @@ bool MFTVideoDecoder::onOutput(ComPtr<IMFSample> sample)
     ColorSpace cs;
     frame_param_.colorSpace(&cs, false);
     frame.setColorSpace(cs, true);
+    HDRMetadata hdr{};
+    frame_param_.masteringMetadata(&hdr.mastering);
+    frame_param_.contentLightMetadata(&hdr.content_light);
+    frame.setMasteringMetadata(hdr.mastering, false);
+    frame.setContentLightMetadata(hdr.content_light, false);
     frameDecoded(frame);
     return true;
 }
