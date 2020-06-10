@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -26,6 +26,7 @@ struct VideoCodecParameters;
 struct AudioCodecParameters;
 enum class PixelFormat;
 class ColorSpace;
+struct HDRMetadata;
 
 namespace MF {
 // create wrapper buffer from IMF in limited offset and size, like MFCreateMediaBufferWrapper
@@ -67,6 +68,9 @@ bool from(const VideoCodecParameters& par, IMFAttributes* a);
 
 bool to(ColorSpace& cs, const IMFAttributes* a);
 bool from(const ColorSpace& cs, IMFAttributes* a);
+
+bool to(HDRMetadata& hdr, const IMFAttributes* a);
+bool from(const HDRMetadata& hdr, IMFAttributes* a);
 
 bool to(VideoFormat& fmt, const IMFAttributes* a);
 bool from(const VideoFormat& fmt, IMFAttributes* a);

@@ -8,9 +8,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 # pragma push_macro("_WIN32_WINNT")
-# if _WIN32_WINNT < 0x0601 // for IMFTrackedSample. doc says it's available for vista, but win sdk requires win7
+# if _WIN32_WINNT < 0x0A00 // 0A00: hdr attributes. 0601: for IMFTrackedSample. doc says it's available for vista, but win sdk requires win7
 #   undef _WIN32_WINNT
-#   define _WIN32_WINNT 0x0601
+#   define _WIN32_WINNT 0x0A00
 # endif
 #include "base/ms/MFGlue.h"
 #include "base/ByteArrayBuffer.h"
@@ -171,6 +171,58 @@ bool from(const ColorSpace& cs, IMFAttributes* a)
         }
     }
     MS_WARN(a->SetUINT32(MF_MT_VIDEO_NOMINAL_RANGE, from_range(cs.range)));
+    return true;
+}
+
+bool to(HDRMetadata& hdr, const IMFAttributes* ca)
+{
+    auto a = const_cast<IMFAttributes*>(ca);
+    UINT32 v = 0;
+    if (SUCCEEDED(a->GetUINT32(MF_MT_MIN_MASTERING_LUMINANCE, &v)))
+        hdr.mastering.luminance_min = v;
+    if (SUCCEEDED(a->GetUINT32(MF_MT_MAX_MASTERING_LUMINANCE, &v)))
+        hdr.mastering.luminance_max = v;
+    MT_CUSTOM_VIDEO_PRIMARIES p{};
+    if (SUCCEEDED(a->GetBlob(MF_MT_CUSTOM_VIDEO_PRIMARIES, (UINT8*)&p, sizeof(p), nullptr))) {
+        hdr.mastering.R[0] = p.fRx;
+        hdr.mastering.R[1] = p.fRy;
+        hdr.mastering.G[0] = p.fGx;
+        hdr.mastering.G[1] = p.fGy;
+        hdr.mastering.B[0] = p.fBx;
+        hdr.mastering.B[1] = p.fBy;
+        hdr.mastering.W[0] = p.fWx;
+        hdr.mastering.W[1] = p.fWy;
+    }
+    // MaxFALL https://docs.microsoft.com/en-us/windows/win32/medfound/mf-mt-max-frame-average-luminance-level
+    if (SUCCEEDED(a->GetUINT32(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL, &v)))
+        hdr.content_light.MaxFALL = v;
+    if (SUCCEEDED(a->GetUINT32(MF_MT_MAX_LUMINANCE_LEVEL, &v)))
+        hdr.content_light.MaxCLL = v;
+    return true;
+}
+
+bool from(const HDRMetadata& hdr, IMFAttributes* a)
+{
+    if (hdr.mastering.W[0] > 0) {
+        MT_CUSTOM_VIDEO_PRIMARIES p;
+        p.fRx = hdr.mastering.R[0];
+        p.fRy = hdr.mastering.R[1];
+        p.fGx = hdr.mastering.G[0];
+        p.fGy = hdr.mastering.G[1];
+        p.fBx = hdr.mastering.B[0];
+        p.fBy = hdr.mastering.B[1];
+        p.fWx = hdr.mastering.W[0];
+        p.fWy = hdr.mastering.W[1];
+        MS_WARN(a->SetBlob(MF_MT_CUSTOM_VIDEO_PRIMARIES, (UINT8*)&p, sizeof(p)));
+    }
+    if (hdr.mastering.luminance_min > 0)
+        MS_WARN(a->SetUINT32(MF_MT_MIN_MASTERING_LUMINANCE, hdr.mastering.luminance_min));
+    if (hdr.mastering.luminance_max > 0)
+        MS_WARN(a->SetUINT32(MF_MT_MAX_MASTERING_LUMINANCE, hdr.mastering.luminance_max));
+    if (hdr.content_light.MaxFALL > 0)
+        MS_WARN(a->SetUINT32(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL, hdr.content_light.MaxFALL));
+    if (hdr.content_light.MaxCLL > 0)
+        MS_WARN(a->SetUINT32(MF_MT_MAX_LUMINANCE_LEVEL, hdr.content_light.MaxCLL));
     return true;
 }
 
