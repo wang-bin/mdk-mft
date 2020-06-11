@@ -182,6 +182,7 @@ bool to(HDRMetadata& hdr, const IMFAttributes* ca)
         hdr.mastering.luminance_min = v;
     if (SUCCEEDED(a->GetUINT32(MF_MT_MAX_MASTERING_LUMINANCE, &v)))
         hdr.mastering.luminance_max = v;
+#if !(MS_WINRT)
     MT_CUSTOM_VIDEO_PRIMARIES p{};
     if (SUCCEEDED(a->GetBlob(MF_MT_CUSTOM_VIDEO_PRIMARIES, (UINT8*)&p, sizeof(p), nullptr))) {
         hdr.mastering.R[0] = p.fRx;
@@ -193,6 +194,7 @@ bool to(HDRMetadata& hdr, const IMFAttributes* ca)
         hdr.mastering.W[0] = p.fWx;
         hdr.mastering.W[1] = p.fWy;
     }
+#endif
     // MaxFALL https://docs.microsoft.com/en-us/windows/win32/medfound/mf-mt-max-frame-average-luminance-level
     if (SUCCEEDED(a->GetUINT32(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL, &v)))
         hdr.content_light.MaxFALL = v;
@@ -203,6 +205,7 @@ bool to(HDRMetadata& hdr, const IMFAttributes* ca)
 
 bool from(const HDRMetadata& hdr, IMFAttributes* a)
 {
+#if !(MS_WINRT) // not defined in header(mfapi.h), but exists at runtime
     if (hdr.mastering.W[0] > 0) {
         MT_CUSTOM_VIDEO_PRIMARIES p;
         p.fRx = hdr.mastering.R[0];
@@ -215,6 +218,7 @@ bool from(const HDRMetadata& hdr, IMFAttributes* a)
         p.fWy = hdr.mastering.W[1];
         MS_WARN(a->SetBlob(MF_MT_CUSTOM_VIDEO_PRIMARIES, (UINT8*)&p, sizeof(p)));
     }
+#endif
     if (hdr.mastering.luminance_min > 0)
         MS_WARN(a->SetUINT32(MF_MT_MIN_MASTERING_LUMINANCE, hdr.mastering.luminance_min));
     if (hdr.mastering.luminance_max > 0)
