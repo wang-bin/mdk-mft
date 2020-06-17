@@ -250,6 +250,7 @@ const CLSID* codec_for(const std::string& name, MediaType type)
         {"wmv2", &MFVideoFormat_WMV2},
         {"wmv3", &MFVideoFormat_WMV3},
         {"vc1", &MFVideoFormat_WVC1},
+        {"av1", &MFVideoFormat_AV1},
     };
     static const codec_id_map codec_ids[] = {vcodec_id, acodec_id};
     const auto& ids = codec_ids[std::underlying_type<MediaType>::type(type)];
