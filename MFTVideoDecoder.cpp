@@ -92,6 +92,7 @@ private:
     // properties
     int copy_ = 0;
     int use_d3d_ = 0;
+	VideoFormat force_fmt_;
 
     const CLSID* codec_id_ = nullptr;
     int nal_size_ = 0;
@@ -112,6 +113,7 @@ bool MFTVideoDecoder::open()
 {
     useSamplePool(std::stoi(property("pool", "1")));
     copy_ = std::stoi(property("copy", "0"));
+    force_fmt_ = VideoFormat::fromName(property("format", "unknown").data());
     setInputTypeIndex(std::stoi(property("in_type", "-1")));
     setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 
@@ -309,6 +311,8 @@ int MFTVideoDecoder::getOutputTypeScore(IMFAttributes* attr)
     VideoFormat vf;
     if (!MF::to(vf, attr))
         return -1;
+    if (force_fmt_ && force_fmt_ == vf)
+        return 2;
     // if not the same as input format(depth), MF_E_TRANSFORM_STREAM_CHANGE will occur and have to select again(in a dead loop). e.g. input vp9 is 8bit, but p010 is selected, mft can refuse to use it.
     return vf.bitsPerChannel() == VideoFormat(parameters().format).bitsPerChannel();
 }
