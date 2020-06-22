@@ -24,11 +24,12 @@
 #include <Mferror.h>
 #include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
 # pragma pop_macro("_WIN32_WINNT")
+using namespace std;
 
 MDK_NS_BEGIN
 #if (_MSC_VER + 0) // RuntimeClass is missing in mingw
 // used by SetAllocator, pool ref must be added in Tracked sample, so make it as IUnknown
-class MFTCodec::SamplePool : public mpsc_fifo<ComPtr<IMFTrackedSample>>, public RuntimeClass<RuntimeClassFlags<ClassicCom>, IMFAsyncCallback>  // IUnknown is implemented by RuntimeClass
+class MFTCodec::SamplePool final : public mpsc_fifo<ComPtr<IMFTrackedSample>>, public RuntimeClass<RuntimeClassFlags<ClassicCom>, IMFAsyncCallback>  // IUnknown is implemented by RuntimeClass
 {
 public:
     HRESULT STDMETHODCALLTYPE GetParameters(DWORD *pdwFlags, DWORD *pdwQueue) override {return E_NOTIMPL;}
@@ -70,9 +71,9 @@ bool MFTCodec::openCodec(MediaType mt, const CLSID& codec_id)
     if (!setMediaTypes())
         return false;
     MS_ENSURE(mft_->GetInputStreamInfo(id_in_, &info_in_), false);
-    std::clog << "input stream info: dwFlags=" << info_in_.dwFlags << ", cbSize=" << info_in_.cbSize << ", cbAlignment=" << info_in_.cbAlignment << ", hnsMaxLatency=" << info_in_.hnsMaxLatency << ", cbMaxLookahead=" << info_in_.cbMaxLookahead << std::endl;
+    clog << fmt::to_string("input stream info: dwFlags=%u, cbSize=%u, cbAlignment=%u, hnsMaxLatency=%lld, cbMaxLookahead=%u", info_in_.dwFlags, info_in_.cbSize, info_in_.cbAlignment, info_in_.hnsMaxLatency, info_in_.cbMaxLookahead) << endl;
     MS_ENSURE(mft_->GetOutputStreamInfo(id_out_, &info_out_), false);
-    std::clog << "output stream info: dwFlags=" << info_out_.dwFlags << ", cbSize=" << info_out_.cbSize << ", cbAlignment=" << info_out_.cbAlignment << std::endl;
+    clog << fmt::to_string("output stream info: dwFlags=%u, cbSize=%u, cbAlignment=%u", info_out_.dwFlags, info_out_.cbSize, info_out_.cbAlignment) << endl;
     ComPtr<IMFMediaType> type;
     MS_ENSURE(mft_->GetOutputCurrentType(id_out_, &type), false);
     if (!onOutputTypeChanged(id_out_, type))
@@ -405,7 +406,7 @@ bool MFTCodec::decodePacket(const Packet& pkt)
 	return !pkt.isEnd();
 }
 
-ComPtr<IMFSample> MFTCodec::getOutSample()
+ComPtr<IMFSample> MFTCodec::getOutSample() // getUncompressedSample()
 {
     auto set_sample_buffers = [this](IMFSample* sample){
         ComPtr<IMFMediaBuffer> buf;
@@ -455,7 +456,7 @@ bool MFTCodec::processOutput()
     out.pEvents = nullptr; // set by MFT
     DWORD status = 0;
     auto hr = mft_->ProcessOutput(0, 1, &out, &status);
-    if (out.pEvents)
+    if (out.pEvents) // in-band(sync mft) events from ProcessEvent()
         out.pEvents->Release();
     // MFCreateVideoSampleFromSurface. additional ref is added to safe reuse the sample. https://msdn.microsoft.com/en-us/library/windows/desktop/ms697026(v=vs.85).aspx
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-dxva-2-0-in-media-foundation#decoding
@@ -490,9 +491,11 @@ bool MFTCodec::processOutput()
         bool later = false;
         if (!selectOutputType(id_out_, &later))
             return false;
+		MS_ENSURE(mft_->GetOutputStreamInfo(id_out_, &info_out_), false);
+        clog << fmt::to_string("output stream info: dwFlags=%u, cbSize=%u, cbAlignment=%u", info_out_.dwFlags, info_out_.cbSize, info_out_.cbAlignment) << endl;
         ComPtr<IMFMediaType> type;
         MS_ENSURE(mft_->GetOutputCurrentType(id_out_, &type), false);
-        if (!onOutputTypeChanged(id_out_, type))
+        if (!onOutputTypeChanged(id_out_, type)) // TODO: dump attribute
             return false;
         return true;
     }
