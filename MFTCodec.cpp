@@ -228,9 +228,11 @@ ComPtr<IMFMediaType> SelectType(DWORD stream_id, GetAvailableType getAvail, GetS
     int score = -1;
     HRESULT hr = S_OK;
     for (int i = 0; ; i++) {
-        MS_WARN((hr = getAvail(stream_id, i, &tmp)));
+        hr = getAvail(stream_id, i, &tmp);
         if (hr == MF_E_NO_MORE_TYPES)
             return type;
+        if (FAILED(hr))
+            MS_WARN(hr);
         if (hr == E_NOTIMPL) // An MFT is not required to implement GetInputAvailableType (simple type)
             return nullptr;
         if (hr == MF_E_TRANSFORM_TYPE_NOT_SET) {
