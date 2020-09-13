@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -45,6 +45,7 @@ Compare with FFmpeg D3D11/DXVA:
 #include "mdk/VideoFrame.h"
 #include "AnnexBFilter.h"
 #include "base/ByteArray.h"
+#include "base/fmt.h"
 #include "base/ms/MFTCodec.h"
 #include "video/d3d/D3D9Utils.h"
 #include "video/d3d/D3D11Utils.h"
@@ -54,8 +55,8 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
-// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=0(0,1 keyed mutex,-1 legacy)
-// feature_level=11.1(9.1,9.2,1.3,10.0,10.1,11.0,12.0,12.1)
+// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=1, nthandle=0, kmt=0
+// feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1)
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -69,9 +70,10 @@ public:
         onFlush();
         return ret;
     }
-    bool decode(const Packet& pkt) override { return decodePacket(pkt); }
+    int decode(const Packet& pkt) override { return decodePacket(pkt); }
 private:
     void onPropertyChanged(const std::string& key, const std::string& value) override {
+        VideoDecoder::onPropertyChanged(key, value);
         if (key == "copy")
             copy_ = std::stoi(value);
         else if (key == "pool")
@@ -82,17 +84,17 @@ private:
     bool testConstraints(ComPtr<IMFTransform> mft);
     uint8_t* filter(uint8_t* data, size_t* size) override;
 
-    virtual bool setInputTypeAttributes(IMFAttributes* attr) override;
-    virtual bool setOutputTypeAttributes(IMFAttributes* attr) override;
-    virtual int getInputTypeScore(IMFAttributes* attr) override;
-    virtual int getOutputTypeScore(IMFAttributes* attr) override;
+    bool setInputTypeAttributes(IMFAttributes* attr) override;
+    bool setOutputTypeAttributes(IMFAttributes* attr) override;
+    int getInputTypeScore(IMFAttributes* attr) override;
+    int getOutputTypeScore(IMFAttributes* attr) override;
     bool onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> type) override; // width/height, pixel format, yuv mat, color primary/transfer func/chroma sitting/range, par
     bool onOutput(ComPtr<IMFSample> sample) override;
 
     // properties
     int copy_ = 0;
     int use_d3d_ = 0;
-	VideoFormat force_fmt_;
+    VideoFormat force_fmt_;
 
     const CLSID* codec_id_ = nullptr;
     int nal_size_ = 0;
@@ -127,11 +129,11 @@ bool MFTVideoDecoder::open()
     // TODO: other codecs
     if (*codec_id_ == MFVideoFormat_H264) {
         if (par.profile > 100 && !std::stoi(property("ignore_profile", "0"))) { // TODO: property to ignore profile and level
-            std::clog << "H264 profile is not supported by MFT. Max is High(100)" << std::endl;
+            std::clog << "H264 profile is not supported by MFT. Max is High(100). set property 'ignore_profile=1' to ignore profile restriction." << std::endl;
             return false;
         }
         if (par.level > 51 && !std::stoi(property("ignore_level", "0"))) {
-            std::clog << "H264 level is not supported by MFT. Max is 5.1" << std::endl;
+            std::clog << "H264 level is not supported by MFT. Max is 5.1. set property 'ignore_level=1' to ignore profile restriction" << std::endl;
             return false;
         }
         // chroma subsample?
@@ -167,7 +169,7 @@ bool MFTVideoDecoder::close()
     csd_ = nullptr;
     csd_size_ = 0;
     csd_pkt_.clear();
-    bool ret = closeCodec(); 
+    bool ret = closeCodec();
     onClose();
     return ret;
 }
@@ -179,6 +181,9 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
     use_d3d_ = std::stoi(property("d3d", "0"));
     uint32_t adapter = std::stoi(property("adapter", "0"));
     auto fl = D3D11::to_feature_level(property("feature_level", "11.1").data());
+    UINT flags = 0;
+    if (std::stoi(property("debug", "0")))
+        flags |= D3D11_CREATE_DEVICE_DEBUG;
     ComPtr<IMFAttributes> a;
     MS_ENSURE(mft->GetAttributes(&a), false);
     // d3d: https://docs.microsoft.com/en-us/windows/desktop/medfound/direct3d-aware-mfts
@@ -197,7 +202,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 #endif
     if (use_d3d_ == 11)
         MS_WARN(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware));
-    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter, fl)) {
+    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter, fl, flags)) {
         auto mgr = mgr11_.create();
         if (mgr) {
             HRESULT hr = S_OK;
@@ -211,10 +216,10 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 
     wchar_t vendor[128]{}; // set vendor id?
     if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        printf("hw vendor id: %ls\n", vendor);
+        clog << fmt::to_string("hw vendor id: %ls", vendor) << endl;
     if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_URL_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        printf("hw url: %ls\n", vendor);
-    // MFT_ENUM_HARDWARE_URL_Attribute 
+        clog << fmt::to_string("hw url: %ls", vendor) << endl;
+    // MFT_ENUM_HARDWARE_URL_Attribute
     // https://docs.microsoft.com/zh-cn/windows/desktop/DirectShow/codec-api-properties
     // or ICodecAPI.SetValue(, &VARIANT{.vt=VT_UI4, .uintVal=1})
     MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoAcceleration_H264, 1));
@@ -262,7 +267,7 @@ uint8_t* MFTVideoDecoder::filter(uint8_t* data, size_t* size)
     if (nal_size_ > 0) { // TODO: PacketFilter
         //data = pkt.buffer->data(); // modify constData() if pkt is rvalue
         to_annexb_packet(data, (int)*size, nal_size_);
-        
+
     }
     if (!csd_pkt_.empty())
         return nullptr;
@@ -321,7 +326,7 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
 {
     ComPtr<IMFAttributes> a;
     MS_ENSURE(type.As(&a), false);
-	std::clog << __func__ << ": ";
+    std::clog << __func__ << ": ";
     MF::dump(a.Get()); // TODO: move to MFTCodec.cpp
     VideoFormat outfmt;
     if (!MF::to(outfmt, a.Get()))
@@ -343,25 +348,36 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
     }
     ColorSpace cs;
     MF::to(cs, a.Get());
-	HDRMetadata hdr{};
+    HDRMetadata hdr{};
     MF::to(hdr, a.Get()); // frame level(hevc ts, mkv)?
     frame_param_ = VideoFrame(w, h, outfmt);
     frame_param_.setColorSpace(cs, true);
-	frame_param_.setMasteringMetadata(hdr.mastering, false);
+    frame_param_.setMasteringMetadata(hdr.mastering, false);
     frame_param_.setContentLightMetadata(hdr.content_light, false);
     // TODO: interlace MF_MT_INTERLACE_MODE=>MFVideoInterlaceMode
     // TODO: MF_MT_PIXEL_ASPECT_RATIO, MF_MT_YUV_MATRIX, MF_MT_VIDEO_PRIMARIES, MF_MT_TRANSFER_FUNCTION, MF_MT_VIDEO_CHROMA_SITING, MF_MT_VIDEO_NOMINAL_RANGE
     // MFVideoPrimaries_BT709, MFVideoPrimaries_BT2020
     // MF_MT_TRANSFER_FUNCTION:  MFVideoTransFunc_2020(_const)
     if (use_d3d_ == 11 && pool_) {
-        //MS_ENSURE(mft_->GetOutputStreamAttributes(streamId, &a), false);
+        MS_ENSURE(mft_->GetOutputStreamAttributes(streamId, &a), false);
         // win8 attributes
-        auto shared = std::stoi(property("shared", "0"));
-        if (shared > 0)
-            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , 1), false); // shared via keyed-mutex. FIXME: ProcessInput() error
-        else if (shared < 0)
-            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , 1), false); // shared via legacy mechanism // chrome media ccd2ba30c9d51983bb7676eda9851c372ace718d
-		auto sr = std::stoi(property("shader_resource", "0"));
+        const auto nthandle = std::stoi(property("nthandle", "0"));
+        const auto kmt = std::stoi(property("kmt", "0"));
+        auto shared = nthandle || kmt || std::stoi(property("shared", "1"));
+/*
+    result MF_SA_D3D11_SHARED  MF_SA_D3D11_SHARED_WITHOUT_MUTEX
+       0
+      kmt   0                    1
+      kmt   1                    1
+      kmt   1                    0
+       0    0                    0
+    FIXME: kmt error ProcessOutput: (80070057), ProcessInput c00d36b5
+ */
+        if (shared) {
+            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , shared), false); // shared via keyed-mutex
+            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , !kmt), false); // shared via legacy mechanism // chrome media ccd2ba30c9d51983bb7676eda9851c372ace718d
+        }
+        auto sr = std::stoi(property("shader_resource", "0"));
         if (sr > 0) // hints for surfaces. applies iff MF_SA_D3D11_AWARE is TRUE
             MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_DECODER), false); // optional?
         // MF_SA_D3D11_USAGE
