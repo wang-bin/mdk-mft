@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -128,7 +128,9 @@ bool MFTVideoDecoder::open()
     // https://docs.microsoft.com/en-us/windows/desktop/medfound/h-264-video-decoder#format-constraints
     // TODO: other codecs
     if (*codec_id_ == MFVideoFormat_H264) {
-        if (par.profile > 100 && !std::stoi(property("ignore_profile", "0"))) { // TODO: property to ignore profile and level
+        if (par.profile > 100
+            && par.profile != ((1<<9)|66) // constrained baseline
+            && !std::stoi(property("ignore_profile", "0"))) { // TODO: property to ignore profile and level
             std::clog << "H264 profile is not supported by MFT. Max is High(100). set property 'ignore_profile=1' to ignore profile restriction." << std::endl;
             return false;
         }
