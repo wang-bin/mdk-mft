@@ -56,7 +56,7 @@ Compare with FFmpeg D3D11/DXVA:
 # pragma pop_macro("_WIN32_WINNT")
 
 // properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=1, nthandle=0, kmt=0
-// feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1)
+// feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1), blacklist=mpeg4
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -119,8 +119,13 @@ bool MFTVideoDecoder::open()
     setInputTypeIndex(std::stoi(property("in_type", "-1")));
     setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 
+    const auto blacklist = property("blacklist", "mpeg4");
     const auto& par = parameters();
     codec_id_ = MF::codec_for(par.codec, MediaType::Video);
+    if (blacklist.find(par.codec) != string::npos) {
+        clog << par.codec << " is in blacklist" << endl;
+        return false;
+    }
     if (!codec_id_) {
         std::clog << "codec is not supported: " << par.codec << std::endl;
         return false;
