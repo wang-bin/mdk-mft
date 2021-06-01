@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018~2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018~2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -11,12 +11,12 @@
 #include "mdk/Buffer.h"
 #include "mdk/MediaInfo.h"
 #include "mdk/Packet.h"
+#include <cstdio>
 #include <atomic>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string_view>
-#include "cppcompat/cstdio.hpp"
 #include "base/log.h"
 
 MDK_NS_BEGIN

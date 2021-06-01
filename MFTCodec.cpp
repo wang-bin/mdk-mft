@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -18,7 +18,6 @@
 #include "base/ByteArrayBuffer.h"
 #include "base/fmt.h"
 #include "base/mpsc_fifo.h"
-#include "cppcompat/type_traits.hpp"
 #include <algorithm>
 #include <codecapi.h>
 #include <Mferror.h>
