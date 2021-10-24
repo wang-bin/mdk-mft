@@ -116,6 +116,7 @@ bool MFTVideoDecoder::open()
     useSamplePool(std::stoi(property("pool", "1")));
     copy_ = std::stoi(property("copy", "0"));
     force_fmt_ = VideoFormat::fromName(property("format", "unknown").data());
+    activateAt(std::stoi(property("activate", "0")));
     setInputTypeIndex(std::stoi(property("in_type", "-1")));
     setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 

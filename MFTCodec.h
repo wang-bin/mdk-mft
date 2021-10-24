@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -20,7 +20,7 @@ protected:
     virtual ~MFTCodec();
     // enable (unbounded) sample pool. Use a pool to reduce sample and buffer allocation frequency because a buffer(video) can be in large size.
     void useSamplePool(bool value = true) { use_pool_ = value; } // setPoolSamples(int size = -1)
-    void activateAt(int value);
+    void activateAt(int value) { activate_index_ = value; }
     bool openCodec(MediaType type, const CLSID& codec_id);
     bool closeCodec();
     bool flushCodec();

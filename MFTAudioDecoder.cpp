@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  * 
@@ -65,6 +65,7 @@ bool MFTAudioDecoder::open()
 {
     useSamplePool(std::stoi(property("pool", "1")));
     copy_ = std::stoi(property("copy", "0"));
+    activateAt(std::stoi(property("activate", "0")));
     setInputTypeIndex(std::stoi(property("in_type", "-1")));
     setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 
