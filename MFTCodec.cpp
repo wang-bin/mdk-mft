@@ -331,6 +331,7 @@ ComPtr<IMFMediaType> MFTCodec::selectOutputType(DWORD stream_id, bool* later)
     std::clog << "used output type: " << std::endl;
     MS_ENSURE(mft_->GetOutputCurrentType(stream_id, &type), nullptr);
     MS_ENSURE(type.As(&a), nullptr);
+    clog << (void*)a.Get() << " ";
     MF::dump(a.Get());
     return type;
 }
@@ -462,9 +463,14 @@ bool MFTCodec::processOutput()
     // MFCreateVideoSampleFromSurface. additional ref is added to safe reuse the sample. https://msdn.microsoft.com/en-us/library/windows/desktop/ms697026(v=vs.85).aspx
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-dxva-2-0-in-media-foundation#decoding
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-direct3d-11-video-decoding-in-media-foundation#decoding
-    ComPtr<IMFTrackedSample> tracked; // d3d11 or dxva2 provided by mft. or provided by our pool
+    ComPtr<IMFTrackedSample> tracked; // d3d11 or dxva2 provided by mft. or provided by our pool. Video samples created by the MFCreateVideoSampleFromSurface function expose this interface: https://docs.microsoft.com/en-us/windows/win32/medfound/video-samples
     // if not provided by mft and need more input, out.pSample is null
-    if (out.pSample && SUCCEEDED(out.pSample->QueryInterface(IID_PPV_ARGS(&tracked)))) {
+    //clog << "kProvidesSample: " << kProvidesSample << ", sample: " << (void*)sample.Get() << ", out.pSample: " << (void*)out.pSample << endl << flush;
+    if (out.pSample && (
+        SUCCEEDED(out.pSample->QueryInterface(IID_PPV_ARGS(&tracked)))
+        || !sample.Get() // can not assume d3d11/dxva is a IMFTrackedSample(win10 2021 HEVCVideoExtensions), but output sample must be tracked internally, so Attach to it. sample is always null here for dxva2/d3d11
+        )) {
+        //clog << "Attach tracked: " << tracked.Get() << endl;
         sample.Attach(out.pSample); // provided by mft or pool. DO NOT Release() pSample here. Otherwise TrackedSample callback is called and sample is recycled.
 #ifdef __MINGW32__ // mingw adds ref in attach() https://sourceforge.net/p/mingw-w64/discussion/723797/thread/616a8df0ee . TODO: version check if fixed in mingw
         sample->Release();
@@ -507,6 +513,10 @@ bool MFTCodec::processOutput()
             use_pool_ = false;
         }
         return false;
+    }
+    if (!sample) {
+        clog << "null output sample" << endl;
+        return true;
     }
     return onOutput(sample);
 }
