@@ -2,7 +2,7 @@
  * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -59,6 +59,7 @@ private:
     bool uninit_com_ = false;
     bool use_pool_ = true;
     bool discontinuity_ = false;
+    bool warn_not_tracked_ = true;
     int activate_index_ = -1;
     DWORD id_in_ = 0;
     DWORD id_out_ = 0;

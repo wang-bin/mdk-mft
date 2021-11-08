@@ -80,6 +80,7 @@ bool MFTCodec::openCodec(MediaType mt, const CLSID& codec_id)
     // TODO: apply extra data here?
     MS_ENSURE(mft_->ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, ULONG_PTR()), false); // optional(After setting all media types, before ProcessInput). allocate resources(in the 1st ProcessInput if not sent).
     MS_ENSURE(mft_->ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, ULONG_PTR()), false); // required by async. start to process inputs
+    warn_not_tracked_ = true;
     return true;
 }
 
@@ -468,9 +469,11 @@ bool MFTCodec::processOutput()
     //clog << "kProvidesSample: " << kProvidesSample << ", sample: " << (void*)sample.Get() << ", out.pSample: " << (void*)out.pSample << endl << flush;
     if (out.pSample && (
         SUCCEEDED(out.pSample->QueryInterface(IID_PPV_ARGS(&tracked)))
-        || !sample.Get() // can not assume d3d11/dxva is a IMFTrackedSample(win10 2021 HEVCVideoExtensions), but output sample must be tracked internally, so Attach to it. sample is always null here for dxva2/d3d11
+        || !sample.Get() // can not assume d3d11/dxva is a IMFTrackedSample(win10 2021 HEVCVideoExtensions, intel/nvidia), but output sample must be tracked internally, so Attach to it. sample is always null here for dxva2/d3d11
         )) {
-        //clog << "Attach tracked: " << tracked.Get() << endl;
+        if (warn_not_tracked_ && !tracked)
+            clog << "Not a IMFTrackedSample" << endl;
+        warn_not_tracked_ = false;
         sample.Attach(out.pSample); // provided by mft or pool. DO NOT Release() pSample here. Otherwise TrackedSample callback is called and sample is recycled.
 #ifdef __MINGW32__ // mingw adds ref in attach() https://sourceforge.net/p/mingw-w64/discussion/723797/thread/616a8df0ee . TODO: version check if fixed in mingw
         sample->Release();
