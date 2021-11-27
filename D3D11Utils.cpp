@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  */
 #include "D3D11Utils.h"
 #include <iostream>
 #include <type_traits>
 #include <d3d11_1.h>
 #include "base/fmt.h"
+#pragma comment(lib, "dxguid.lib") // WKPDID_D3DDebugObjectName
 // gpu select: https://github.com/walbourn/directx-vs-templates/commit/e6406ee9afaf2719ff29b68c63c7adbcac57c02a
 
 namespace D3D11 {
@@ -185,6 +186,9 @@ bool Manager::init(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
     dev_ = D3D11::CreateDevice(adapterIndex, fl, D3D11_CREATE_DEVICE_VIDEO_SUPPORT|flags);
     if (!dev_)
         return false;
+    constexpr char c_szName[] = "MFDXDevice";
+    MS_WARN(dev_->SetPrivateData(WKPDID_D3DDebugObjectName, sizeof(c_szName) - 1, c_szName));
+    //SetPrivateDataInterface(__uuidof(xxx), xxx) // xxx ref +1, so manually Release() after set. GetPrivateData()
     return true;
 }
 
