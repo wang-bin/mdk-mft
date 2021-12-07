@@ -52,11 +52,18 @@ Compare with FFmpeg D3D11/DXVA:
 #include <codecapi.h>
 #include <Mferror.h>
 #include <iostream>
+#include <thread>
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
 // properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=1, nthandle=0, kmt=0
 // feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1), blacklist=mpeg4
+// software decoder properties:
+// priority=-2(lowest), -1(below normal), 0(normal), 1(above normal), 2(highest)
+// threads=0(default, number of concurrent threads supported), N
+// fast=0: normal, 1: Optimal Loop Filter, 2: Disable Loop Filter, ..., 32: fastest
+// power=0: Optimize for battery life, 50: balanced, 100: Optimize for video quality. 0~100
+// deinterlace=0: no, 1: progressive, 2: bob, 3: smart bob
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -247,6 +254,29 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         low_latency = false;
     if (std::stoi(property("low_latency", std::to_string(low_latency))))
         MS_WARN(a->SetUINT32(CODECAPI_AVLowLatencyMode, 1)); // .vt = VT_BOOL, .boolVal = VARIANT_TRUE fails
+    // https://docs.microsoft.com/en-us/gaming/gdk/_content/gc/system/overviews/mediafoundation-decode#software-decode-1
+    // options for sw decoder. defined in um/codecapi.h
+    auto val = std::stoi(property("threads", "0"));
+    if (val == 0)
+        val = thread::hardware_concurrency();
+    MS_WARN(a->SetUINT32(CODECAPI_AVDecNumWorkerThreads, val));
+    // TODO: apply on the fly?
+    val = std::stoi(property("priority", "0")); // -2(lowest), -1(below normal), 0(normal), 1(above normal), 2(highest)
+    if (val != 0) // https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
+        MS_WARN(a->SetUINT32(CODECAPI_AVPriorityControl, val));
+    val = std::stoi(property("fast", "0")); // 0: normal, 1: Optimal Loop Filter, 2: Disable Loop Filter, ..., 32: fastest
+    if (val != 0) // https://docs.microsoft.com/en-us/windows/win32/directshow/avdecvideofastdecodemode
+        MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoFastDecodeMode, val)); // eAVFastDecodeMode
+    // software power saving level in MPEG4 Part 2, VC1 and H264, 0~100
+    val = std::stoi(property("power", "-1")); // 0 - Optimize for battery life, 50 - balanced, 100 - Optimize for video quality
+    if (val >= 0)
+        MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoSWPowerLevel, val));
+    val = std::stoi(property("deinterlace", "0")); // 0: no, 1: progressive, 2: bob, 3: smart bob
+    if (val != 0)
+        MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoSoftwareDeinterlaceMode, val));
+    // CODECAPI_AVDecVideoThreadAffinityMask, same as Win32 SetThreadAffinityMask
+    // CODECAPI_AVDecDisableVideoPostProcessing (0,1): deblocking/deringing
+    // CODECAPI_AVDecVideoThumbnailGenerationMode: can decode I frame only
     return true;
 }
 
