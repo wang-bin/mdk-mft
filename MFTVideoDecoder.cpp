@@ -56,14 +56,18 @@ Compare with FFmpeg D3D11/DXVA:
 //#ifdef _MSC_VER
 # pragma pop_macro("_WIN32_WINNT")
 
-// properties: pool=1(0, 1), d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, in_type=index(or -1), out_type=index(or -1), low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1), shader_resource=0(0,1),shared=1, nthandle=0, kmt=0
-// feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1), blacklist=mpeg4
-// software decoder properties:
-// priority=-2(lowest), -1(below normal), 0(normal), 1(above normal), 2(highest)
-// threads=0(default, number of concurrent threads supported), N
-// fast=0: normal, 1: Optimal Loop Filter, 2: Disable Loop Filter, ..., 32: fastest
-// power=0: Optimize for battery life, 50: balanced, 100: Optimize for video quality. 0~100
-// deinterlace=0: no, 1: progressive, 2: bob, 3: smart bob
+/*
+  properties:
+  d3d=0(0, 9, 11), copy=0(0, 1, 2), adapter=0, low_latency=0(0,1), ignore_profile=0(0,1), ignore_level=0(0,1)
+  shader_resource=0(0,1),shared=1, nthandle=0, kmt=0
+  feature_level=12.1(9.1,9.2,1.3,10.0,10.1,11.0,11.1,12.0,12.1), blacklist=mpeg4
+  software decoder properties:
+  priority=-2(lowest), -1(below normal), 0(normal), 1(above normal), 2(highest)
+  threads=0(default, number of concurrent threads supported), N
+  fast=0: normal, 1: Optimal Loop Filter, 2: Disable Loop Filter, ..., 32: fastest
+  power=0: Optimize for battery life, 50: balanced, 100: Optimize for video quality. 0~100
+  deinterlace=0: no, 1: progressive, 2: bob, 3: smart bob
+ */
 MDK_NS_BEGIN
 using namespace std;
 class MFTVideoDecoder final : public VideoDecoder, protected MFTCodec
@@ -120,12 +124,8 @@ private:
 
 bool MFTVideoDecoder::open()
 {
-    useSamplePool(std::stoi(property("pool", "1")));
     copy_ = std::stoi(property("copy", "0"));
     force_fmt_ = VideoFormat::fromName(property("format", "unknown").data());
-    activateAt(std::stoi(property("activate", "0")));
-    setInputTypeIndex(std::stoi(property("in_type", "-1")));
-    setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 
     const auto blacklist = property("blacklist", "mpeg4");
     const auto& par = parameters();
@@ -170,7 +170,7 @@ bool MFTVideoDecoder::open()
             }
         }
     }
-    if (!openCodec(MediaType::Video, *codec_id_))
+    if (!openCodec(MediaType::Video, *codec_id_, this))
         return false;
     std::clog << "MFT decoder is ready" << std::endl;
     onOpen();
@@ -229,12 +229,6 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         }
     }
 
-    wchar_t vendor[128]{}; // set vendor id?
-    if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        clog << fmt::to_string("hw vendor id: %ls", vendor) << endl;
-    if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_URL_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        clog << fmt::to_string("hw url: %ls", vendor) << endl;
-    // MFT_ENUM_HARDWARE_URL_Attribute
     // https://docs.microsoft.com/zh-cn/windows/desktop/DirectShow/codec-api-properties
     // or ICodecAPI.SetValue(, &VARIANT{.vt=VT_UI4, .uintVal=1})
     MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoAcceleration_H264, 1));

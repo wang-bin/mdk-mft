@@ -3,17 +3,11 @@
  * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-//#ifdef _MSC_VER
-# pragma push_macro("_WIN32_WINNT")
-# if _WIN32_WINNT < 0x0602 // MFT_ENUM_HARDWARE_VENDOR_ID_Attribute
-#   undef _WIN32_WINNT
-#   define _WIN32_WINNT 0x0602
-# endif
 #include "mdk/AudioDecoder.h"
 #include "mdk/MediaInfo.h"
 #include "mdk/Packet.h"
@@ -22,9 +16,7 @@
 #include <codecapi.h>
 #include <Mferror.h>
 #include <iostream>
-//#ifdef _MSC_VER
-# pragma pop_macro("_WIN32_WINNT")
-// properties: pool=1(0, 1), copy=0(0, 1, 2), in_type=index(or -1), out_type=index(or -1)
+// properties: copy=0(0, 1, 2)
 
 MDK_NS_BEGIN
 using namespace std;
@@ -48,7 +40,6 @@ private:
             useSamplePool(std::stoi(value));
     }
 
-    bool onMFTCreated(ComPtr<IMFTransform> mft) override;
     virtual bool setInputTypeAttributes(IMFAttributes* attr) override;
     virtual bool setOutputTypeAttributes(IMFAttributes* attr) override;
     virtual int getInputTypeScore(IMFAttributes* attr) override;
@@ -63,11 +54,7 @@ private:
 
 bool MFTAudioDecoder::open()
 {
-    useSamplePool(std::stoi(property("pool", "1")));
     copy_ = std::stoi(property("copy", "0"));
-    activateAt(std::stoi(property("activate", "0")));
-    setInputTypeIndex(std::stoi(property("in_type", "-1")));
-    setOutputTypeIndex(std::stoi(property("out_type", "-1")));
 
     const auto& par = parameters();
     codec_id_ = MF::codec_for(par.codec, MediaType::Audio);
@@ -75,7 +62,7 @@ bool MFTAudioDecoder::open()
         std::clog << "codec is not supported: " << par.codec << std::endl;
         return false;
     }
-    if (!openCodec(MediaType::Audio, *codec_id_))
+    if (!openCodec(MediaType::Audio, *codec_id_, this))
         return false;
     std::clog << this << "MFT decoder is ready" << std::endl;
     onOpen();
@@ -84,22 +71,9 @@ bool MFTAudioDecoder::open()
 
 bool MFTAudioDecoder::close()
 {
-    bool ret = closeCodec(); 
+    bool ret = closeCodec();
     onClose();
     return ret;
-}
-
-bool MFTAudioDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
-{
-    ComPtr<IMFAttributes> a;
-    MS_ENSURE(mft->GetAttributes(&a), true); // not implemented
-
-    wchar_t vendor[128]{}; // set vendor id?
-    if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        printf("hw vendor id: %ls\n", vendor);
-    if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_URL_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
-        printf("hw url: %ls\n", vendor);
-    return true;
 }
 
 bool MFTAudioDecoder::setInputTypeAttributes(IMFAttributes* a)

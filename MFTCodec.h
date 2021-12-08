@@ -21,7 +21,7 @@ protected:
     // enable (unbounded) sample pool. Use a pool to reduce sample and buffer allocation frequency because a buffer(video) can be in large size.
     void useSamplePool(bool value = true) { use_pool_ = value; } // setPoolSamples(int size = -1)
     void activateAt(int value) { activate_index_ = value; }
-    bool openCodec(MediaType type, const CLSID& codec_id);
+    bool openCodec(MediaType type, const CLSID& codec_id, const Property* prop);
     bool closeCodec();
     bool flushCodec();
     bool decodePacket(const Packet& pkt);

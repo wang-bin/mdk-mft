@@ -9,21 +9,24 @@
  */
 // https://docs.microsoft.com/zh-cn/windows/uwp/audio-video-camera/supported-codecs
 # pragma push_macro("_WIN32_WINNT")
-# if _WIN32_WINNT < 0x0601 // _WIN32_WINNT_WIN7 is not defined yet
+# if _WIN32_WINNT < 0x0602 // _WIN32_WINNT_WIN7 is not defined yet. 0x0602: MFT_ENUM_HARDWARE_VENDOR_ID_Attribute
 #   undef _WIN32_WINNT
-#   define _WIN32_WINNT 0x0601
+#   define _WIN32_WINNT 0x0602
 # endif
 #include "MFTCodec.h"
 #include "base/scope_atexit.h"
 #include "base/ByteArrayBuffer.h"
 #include "base/fmt.h"
 #include "base/mpsc_fifo.h"
+#include "mdk/Property.h"
 #include <algorithm>
 #include <codecapi.h>
 #include <Mferror.h>
 #include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
 # pragma pop_macro("_WIN32_WINNT")
 using namespace std;
+
+// properties: activate=(index 0, 1, ...), pool=1(0, 1), in_type=index(or -1), out_type=index(or -1)
 
 MDK_NS_BEGIN
 #if (_MSC_VER + 0) // RuntimeClass is missing in mingw
@@ -50,8 +53,13 @@ MFTCodec::MFTCodec()
 
 MFTCodec::~MFTCodec() = default;
 
-bool MFTCodec::openCodec(MediaType mt, const CLSID& codec_id)
+bool MFTCodec::openCodec(MediaType mt, const CLSID& codec_id, const Property* prop)
 {
+    useSamplePool(std::stoi(prop->get("pool", "1")));
+    activateAt(std::stoi(prop->get("activate", "0")));
+    setInputTypeIndex(std::stoi(prop->get("in_type", "-1")));
+    setOutputTypeIndex(std::stoi(prop->get("out_type", "-1")));
+
     if (!createMFT(mt, codec_id))
         return false;
     // TODO: unlock async
@@ -187,15 +195,20 @@ bool MFTCodec::createMFT(MediaType mt, const CLSID& codec_id)
     }
     // https://docs.microsoft.com/zh-cn/windows/desktop/medfound/supporting-direct3d-11-video-decoding-in-media-foundation#allocating-uncompressed-buffers
     if (mft_) {
-        ComPtr<IMFAttributes> attr;
-        if (SUCCEEDED(mft_->GetAttributes(&attr))) {
+        ComPtr<IMFAttributes> a;
+        if (SUCCEEDED(mft_->GetAttributes(&a))) {
+            wchar_t vendor[128]{}; // set vendor id?
+            if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
+                clog << fmt::to_string("hw vendor id: %ls", vendor) << endl;
+            if (SUCCEEDED(a->GetString(MFT_ENUM_HARDWARE_URL_Attribute, vendor, sizeof(vendor), nullptr))) // win8+, so warn only
+                clog << fmt::to_string("hw url: %ls", vendor) << endl;
             // TODO: what about using eventgenerator anyway
             // async requires: IMFMediaEventGenerator, IMFShutdown
             //MS_WARN(attr->SetUINT32(MF_TRANSFORM_ASYNC, TRUE));
             //MS_WARN(attr->SetUINT32(MF_TRANSFORM_ASYNC_UNLOCK, TRUE));
             // TODO: MFT_SUPPORT_DYNAMIC_FORMAT_CHANGE must be true for async
             std::clog << "Selected MFT attributes:" << std::endl;
-            MF::dump(attr.Get());
+            MF::dump(a.Get());
         }
     }
     return !!mft_.Get();
