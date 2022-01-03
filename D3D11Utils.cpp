@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  */
 #include "D3D11Utils.h"
 #include <iostream>
@@ -61,7 +61,7 @@ static void debug_to_log(ID3D11InfoQueue* iq)
     iq->ClearStoredMessages();
 }
 
-void debug_report(ID3D11Device* dev)
+void debug_report(ID3D11Device* dev, const char* prefix)
 {
     if (!dev)
         return;
@@ -78,12 +78,14 @@ void debug_report(ID3D11Device* dev)
         ctx->ClearState();
         ctx->Flush();
     }
-    clog << fmt::to_string("------------debug report begin. device %p------------", dev) << endl;
+    const auto extra = prefix ? prefix : " ?";
+    clog << fmt::to_string("------------debug report detail begin. device %p. %s------------", dev, extra) << endl;
     dbg->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL); //D3D11_RLDO_IGNORE_INTERNAL
     debug_to_log(iq.Get());
+    clog << fmt::to_string("------------debug report summary begin. device %p. %s------------", dev, extra) << endl;
     dbg->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY);
     debug_to_log(iq.Get());
-    clog << fmt::to_string("------------debug report end. device %p------------", dev) << endl;
+    clog << fmt::to_string("------------debug report end. device %p. %s------------", dev, extra) << endl;
 }
 
 ComPtr<IDXGIFactory> CreateDXGI() // TODO: int version = 2. 1.0/1.1 can not be mixed
@@ -178,6 +180,64 @@ ComPtr<ID3D11Device> CreateDevice(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT f
     return CreateDevice(dxgi.Get(), adapterIndex, fl, flags);
 }
 
+static bool is_trace_enabled()
+{
+    char v[4]{};
+    if (GetEnvironmentVariableA("D3D11_TRACE", v, sizeof(v)) > 0)
+        return !!std::stoi(v);
+    return false;
+}
+
+void trace(ComPtr<IUnknown> obj, const char* name)
+{
+    if (!obj)
+        return;
+    if (name)
+        SetDebugName(obj, name);
+    static bool enabled = is_trace_enabled();
+    if (!enabled)
+        return;
+    class __declspec(uuid("50581513-C9A0-454A-B78F-3A3156D06AC4")) DXTracer final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IUnknown> {
+    public:
+    // IInspectable.GetRuntimeClassName? WKPDID_D3DDebugObjectName?
+        DXTracer(const char* name) : name_(name) { clog << fmt::to_string("%s %p (%s)", __func__, this, name_) << endl; }
+        ~DXTracer() override { clog << fmt::to_string("%s %p (%s)", __func__, this, name_) << endl; }
+    private:
+        const char* name_ = "?";
+    };
+
+    UINT size = sizeof(DXTracer*);
+    ComPtr<DXTracer> dt;
+    if (ComPtr<ID3D11DeviceChild> x; SUCCEEDED(obj.As(&x)) && SUCCEEDED(x->GetPrivateData(__uuidof(DXTracer), &size, dt.ReleaseAndGetAddressOf())))
+        return;
+    else if (ComPtr<ID3D11Device> x; SUCCEEDED(obj.As(&x)) && SUCCEEDED(x->GetPrivateData(__uuidof(DXTracer), &size, dt.ReleaseAndGetAddressOf())))
+        return;
+    else if (ComPtr<IDXGIObject> x; SUCCEEDED(obj.As(&x)) && SUCCEEDED(x->GetPrivateData(__uuidof(DXTracer), &size, dt.ReleaseAndGetAddressOf())))
+        return;
+    if (dt)
+        return;
+    dt = Make<DXTracer>(name ? name : "?");
+    if (ComPtr<ID3D11DeviceChild> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateDataInterface(__uuidof(DXTracer), dt.Get()));
+    else if (ComPtr<ID3D11Device> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateDataInterface(__uuidof(DXTracer), dt.Get()));
+    else if (ComPtr<IDXGIObject> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateDataInterface(__uuidof(DXTracer), dt.Get()));
+    //SetPrivateDataInterface(__uuidof(xxx), xxx) // xxx ref +1, so manually Release() after set. GetPrivateData()
+}
+
+void SetDebugName(ComPtr<IUnknown> obj, const char* name)
+{
+    if (!obj)
+        return;
+    if (ComPtr<ID3D11DeviceChild> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(name), name));
+    else if (ComPtr<ID3D11Device> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(name), name));
+    else if (ComPtr<IDXGIObject> x; SUCCEEDED(obj.As(&x)))
+        MS_ENSURE(x->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(name), name));
+}
+
 bool Manager::init(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
 {
 #if (MS_API_DESKTOP+0)
@@ -186,15 +246,15 @@ bool Manager::init(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
     dev_ = D3D11::CreateDevice(adapterIndex, fl, D3D11_CREATE_DEVICE_VIDEO_SUPPORT|flags);
     if (!dev_)
         return false;
-    constexpr char c_szName[] = "MFDXDevice";
-    MS_WARN(dev_->SetPrivateData(WKPDID_D3DDebugObjectName, sizeof(c_szName) - 1, c_szName));
-    //SetPrivateDataInterface(__uuidof(xxx), xxx) // xxx ref +1, so manually Release() after set. GetPrivateData()
+    trace(dev_, "MFDXDevice");
+    debug_report(dev_.Get());
     return true;
 }
 
 Manager::~Manager()
 {
-    debug_report(dev_.Get());
+    mgr_.Reset();
+    debug_report(dev_.Get(), __func__);
 }
 
 ComPtr<IMFDXGIDeviceManager> Manager::create()

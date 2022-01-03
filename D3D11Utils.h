@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  */
 #pragma once
 # pragma push_macro("_WIN32_WINNT")
@@ -22,7 +22,12 @@ ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex = 
 ComPtr<ID3D11Device> CreateDevice(int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
 D3D_FEATURE_LEVEL to_feature_level(float value = 0);
 D3D_FEATURE_LEVEL to_feature_level(const char* name = nullptr);
-void debug_report(ID3D11Device* dev);
+void debug_report(ID3D11Device* dev, const char* prefix = nullptr);
+
+// IDXGIObject, ID3D11Device, ID3D11DeviceChild
+void SetDebugName(ComPtr<IUnknown> obj, const char* name);
+
+void trace(ComPtr<IUnknown> obj, const char* name = nullptr);
 
 class Manager
 {
