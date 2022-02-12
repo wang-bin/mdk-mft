@@ -1,15 +1,44 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 #include "D3D9Utils.h"
+#include "base/fmt.h"
+#include <algorithm>
+#include <string>
+using namespace std;
+
 #if (MS_API_DESKTOP+0)
+namespace DXGI {
+    const char* VendorName(UINT id);
+}
+
 namespace D3D9 {
+
+static int VendorIndex(ComPtr<IDirect3D9> id3d9, const char* vendor)
+{
+    if (!id3d9 || !vendor)
+        return D3DADAPTER_DEFAULT;
+    D3DADAPTER_IDENTIFIER9 ai{};
+    const auto n = id3d9->GetAdapterCount(); // why always 1?
+    for (UINT i = 0; i < 10; ++i) {
+        MS_ENSURE(id3d9->GetAdapterIdentifier(i, 0, &ai), D3DADAPTER_DEFAULT);
+        string s(DXGI::VendorName(ai.VendorId));
+        transform(s.begin(), s.end(), s.begin(), [](char c){ return (char)tolower(c);});
+        if (s.find(vendor) != string::npos)
+            return i;
+        s = ai.Description;
+        transform(s.begin(), s.end(), s.begin(), [](char c){ return (char)tolower(c);});
+        if (s.find(vendor) != string::npos)
+            return i;
+    }
+    return D3DADAPTER_DEFAULT;
+}
 
 ComPtr<IDirect3D9> Create()
 {
@@ -41,11 +70,13 @@ ComPtr<IDirect3D9> Create()
 }
 
 // getenv("DXADAPTOR") here or in caller? different adapters works together?
-ComPtr<IDirect3DDevice9> CreateDevice(ComPtr<IDirect3D9> id3d9, UINT adapter)
+ComPtr<IDirect3DDevice9> CreateDevice(ComPtr<IDirect3D9> id3d9, int adapter)
 {
     D3DADAPTER_IDENTIFIER9 ai{};
+    if (adapter < 0)
+        adapter = D3DADAPTER_DEFAULT;
     MS_ENSURE(id3d9->GetAdapterIdentifier(adapter, 0, &ai), nullptr); // adapter < GetAdapterCount()
-    std::clog << "D3D9 adapter " << adapter << " driver: " << ai.Driver << ", device: " << ai.DeviceName << ", detail: "<< ai.Description << std::endl;
+    clog << fmt::to_string("d3d9 adapter: %d, vendor: %x, driver %s, device: %s(%x), revision %x, %s", adapter, ai.VendorId, ai.Driver, ai.DeviceName, ai.DeviceId, ai.Revision, ai.Description) << endl;
     ComPtr<IDirect3DDevice9> dev;
     D3DPRESENT_PARAMETERS pp{};
     pp.Flags                  = D3DPRESENTFLAG_VIDEO;
@@ -79,7 +110,7 @@ ComPtr<IDirect3DDevice9> CreateDevice(ComPtr<IDirect3D9> id3d9, UINT adapter)
     return dev;
 }
 
-bool Manager::init(UINT adapter)
+bool Manager::init(const char* vendor, int adapter)
 {
     if (!id3d9_) {
         d3d9_dll_.reset(LoadLibraryA("d3d9.dll"));
@@ -89,6 +120,7 @@ bool Manager::init(UINT adapter)
     }
     if (!id3d9_)
         return false;
+    adapter = VendorIndex(id3d9_, vendor);
     dev_ = D3D9::CreateDevice(id3d9_, adapter);
     if (!dev_)
         return false;

@@ -194,8 +194,9 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
     if (!testConstraints(mft))
         return false;
     use_d3d_ = std::stoi(property("d3d", "0"));
-    uint32_t adapter = std::stoi(property("adapter", "0"));
-    auto vendor = property("vendor");
+    int adapter = std::stoi(property("adapter", "0"));
+    auto vendor_s = property("vendor");
+    auto vendor = vendor_s.empty() ? nullptr : vendor_s.data();
     auto fl = D3D11::to_feature_level(property("feature_level", "0").data()); // -1 and check os version to select highest in to_feature_level?
     UINT flags = 0;
     if (std::stoi(property("debug", "0")))
@@ -206,7 +207,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
     UINT32 d3d_aware = 0;
 #if (MS_API_DESKTOP+0)
     if (use_d3d_ == 9 && SUCCEEDED(a->GetUINT32(MF_SA_D3D_AWARE, &d3d_aware)) && d3d_aware
-        && mgr9_.init(adapter)) {
+        && mgr9_.init(vendor, adapter)) {
         auto mgr = mgr9_.create();
         if (mgr) {
             HRESULT hr = S_OK;
@@ -218,7 +219,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 #endif
     if (use_d3d_ == 11)
         MS_WARN(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware));
-    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(vendor.empty() ? nullptr : vendor.data(), adapter, fl, flags)) {
+    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(vendor, adapter, fl, flags)) {
         auto mgr = mgr11_.create();
         if (mgr) {
             HRESULT hr = S_OK;

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
- * 
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -16,12 +16,12 @@
 namespace D3D9 {
 ComPtr<IDirect3D9> Create();
 // TODO: CreateVideoDevice()
-ComPtr<IDirect3DDevice9> CreateDevice(ComPtr<IDirect3D9> id3d9, UINT adapter = D3DADAPTER_DEFAULT);
+ComPtr<IDirect3DDevice9> CreateDevice(ComPtr<IDirect3D9> id3d9, int adapter = D3DADAPTER_DEFAULT);
 
 class Manager
 {
 public:
-    bool init(UINT adapter = D3DADAPTER_DEFAULT);
+    bool init(const char* vendor = nullptr, int adapter = D3DADAPTER_DEFAULT);
     ComPtr<IDirect3DDeviceManager9> create();
 private:
     dll_t d3d9_dll_{nullptr, &FreeLibrary};
