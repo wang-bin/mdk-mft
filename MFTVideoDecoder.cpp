@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -195,7 +195,8 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         return false;
     use_d3d_ = std::stoi(property("d3d", "0"));
     uint32_t adapter = std::stoi(property("adapter", "0"));
-    auto fl = D3D11::to_feature_level(property("feature_level", "11.1").data());
+    auto vendor = property("vendor");
+    auto fl = D3D11::to_feature_level(property("feature_level", "0").data()); // -1 and check os version to select highest in to_feature_level?
     UINT flags = 0;
     if (std::stoi(property("debug", "0")))
         flags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -217,7 +218,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
 #endif
     if (use_d3d_ == 11)
         MS_WARN(a->GetUINT32(MF_SA_D3D11_AWARE, &d3d_aware));
-    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(adapter, fl, flags)) {
+    if (use_d3d_ == 11 && d3d_aware && mgr11_.init(vendor.empty() ? nullptr : vendor.data(), adapter, fl, flags)) {
         auto mgr = mgr11_.create();
         if (mgr) {
             HRESULT hr = S_OK;
@@ -246,7 +247,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
     bool low_latency = true;
     if (strstr(par.codec.data(), "hevc") || strstr(par.codec.data(), "h265"))
         low_latency = false;
-    if (std::stoi(property("low_latency", std::to_string(low_latency))))
+    if (std::stoi(property("low_latency", std::to_string(low_latency)))) // or MF_LOW_LATENCY for win8+
         MS_WARN(a->SetUINT32(CODECAPI_AVLowLatencyMode, 1)); // .vt = VT_BOOL, .boolVal = VARIANT_TRUE fails
     // https://docs.microsoft.com/en-us/gaming/gdk/_content/gc/system/overviews/mediafoundation-decode#software-decode-1
     // options for sw decoder. defined in um/codecapi.h

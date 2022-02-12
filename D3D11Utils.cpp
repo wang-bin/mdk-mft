@@ -2,12 +2,72 @@
  * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  */
 #include "D3D11Utils.h"
+#include <algorithm>
 #include <iostream>
+#include <string>
 #include <type_traits>
 #include <d3d11_1.h>
 #include "base/fmt.h"
 #pragma comment(lib, "dxguid.lib") // WKPDID_D3DDebugObjectName
 // gpu select: https://github.com/walbourn/directx-vs-templates/commit/e6406ee9afaf2719ff29b68c63c7adbcac57c02a
+using namespace std;
+
+namespace DXGI {
+
+// TODO: enum + reflection
+// https://gamedev.stackexchange.com/questions/31625/get-video-chipset-manufacturer-in-direct3d
+static const struct {
+    UINT id;
+    const char* name;
+} vendor[] = {
+    {0x1414, "MicroSoft"},
+    {0x1002, "AMD"},
+    {0x1022, "AMD"},
+    {0x10DE, "NVIDIA"},
+    {0x1106, "VIA"},
+    {0x163C, "INTEL"},
+    {0x8086, "INTEL"},
+    {0x8087, "INTEL"},
+    {0x5333, "S3"},
+    {0x4D4F4351, "QUALCOMM"},
+    {0x344c5250, "Parallels"},
+    // "ParallelDesktop", "VMWare", "VirtualBox"
+};
+
+const char* VendorName(UINT id)
+{
+    for (const auto& v : vendor) {
+        if (v.id == id)
+            return v.name;
+    }
+    return "Unknown";
+}
+
+static int VendorIndex(ComPtr<IDXGIFactory> dxgi, const char* vendor)
+{
+    if (!dxgi || !vendor)
+        return 0;
+    ComPtr<IDXGIAdapter> adapter;
+    HRESULT hr = S_OK;
+    for (int i = 0; hr != DXGI_ERROR_NOT_FOUND; ++i) {
+        hr = dxgi->EnumAdapters(i, &adapter); // dxgi2?
+        if (FAILED(hr) && hr != DXGI_ERROR_NOT_FOUND)
+            return -1;
+        DXGI_ADAPTER_DESC desc;
+        MS_ENSURE(adapter->GetDesc(&desc), 0);
+        string s(DXGI::VendorName(desc.VendorId));
+        transform(s.begin(), s.end(), s.begin(), [](char c){ return (char)tolower(c);});
+        if (s.find(vendor) != string::npos)
+            return i;
+        s.resize(256);
+        snprintf(&s[0], s.size(), "%ls", desc.Description);
+        transform(s.begin(), s.end(), s.begin(), [](char c){ return (char)tolower(c);});
+        if (s.find(vendor) != string::npos)
+            return i;
+    }
+    return -1;
+}
+} // namespace DXGI
 
 namespace D3D11 {
 using namespace std;
@@ -38,7 +98,7 @@ D3D_FEATURE_LEVEL to_feature_level(float value)
 
 D3D_FEATURE_LEVEL to_feature_level(const char* name)
 {
-    float fl = 12.1f;
+    float fl = 12.1f; // TODO: check os version. win10: 12.x, win8: 11.1
     if (name)
         fl =  std::stof(name);
     return to_feature_level(fl);
@@ -91,9 +151,16 @@ void debug_report(ID3D11Device* dev, const char* prefix)
 ComPtr<IDXGIFactory> CreateDXGI() // TODO: int version = 2. 1.0/1.1 can not be mixed
 {
 #if (MS_API_DESKTOP+0)
+    dll_t h{nullptr, &FreeLibrary};
     HMODULE dxgi_dll = GetModuleHandleA("dxgi.dll");
-    if (!dxgi_dll)
-        return nullptr;
+    if (!dxgi_dll) {
+        h.reset(LoadLibraryA("dxgi.dll"));
+        if (!h)
+            return nullptr;
+        dxgi_dll = GetModuleHandleA("dxgi.dll");
+        if (!dxgi_dll)
+            return nullptr;
+    }
     typedef HRESULT(WINAPI *PFN_CREATE_DXGI_FACTORY)(REFIID riid, void **ppFactory);
     auto CreateDXGIFactory = (PFN_CREATE_DXGI_FACTORY)GetProcAddress(dxgi_dll, "CreateDXGIFactory");
     if (!CreateDXGIFactory)
@@ -124,7 +191,7 @@ ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex, D
         MS_ENSURE(adapter->GetDesc(&desc), nullptr);
         char description[256]{};
         snprintf(description, sizeof(description), "%ls", desc.Description);
-        clog << fmt::to_string("d3d11 adapter %d: %s", adapterIndex, description) << endl;
+        clog << fmt::to_string("d3d11 adapter %d: vendor %x, device %x, revision %x, %s", adapterIndex, desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
     } else {
         std::clog << "d3d11 use default adapter" << std::endl;
     }
@@ -168,16 +235,12 @@ ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex, D
     return dev;
 }
 
-ComPtr<ID3D11Device> CreateDevice(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
+ComPtr<ID3D11Device> CreateDevice(const char* vendor, int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
 {
-#if (MS_API_DESKTOP+0)
-    dll_t dxgi_dll{nullptr, &FreeLibrary};
-    dxgi_dll.reset(LoadLibraryA("dxgi.dll"));
-    if (!dxgi_dll)
-        return nullptr;
-#endif
     auto dxgi = D3D11::CreateDXGI();
-    return CreateDevice(dxgi.Get(), adapterIndex, fl, flags);
+    if (vendor)
+        adapterIndex = DXGI::VendorIndex(dxgi, vendor);
+    return CreateDevice(D3D11::CreateDXGI(), adapterIndex, fl, flags);
 }
 
 static bool is_trace_enabled()
@@ -238,12 +301,12 @@ void SetDebugName(ComPtr<IUnknown> obj, const char* name)
         MS_ENSURE(x->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(name), name));
 }
 
-bool Manager::init(int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
+bool Manager::init(const char* vendor, int adapterIndex, D3D_FEATURE_LEVEL fl, UINT flags)
 {
 #if (MS_API_DESKTOP+0)
     d3d11_dll_.reset(LoadLibraryA("d3d11.dll"));
 #endif
-    dev_ = D3D11::CreateDevice(adapterIndex, fl, D3D11_CREATE_DEVICE_VIDEO_SUPPORT|flags);
+    dev_ = D3D11::CreateDevice(vendor, adapterIndex, fl, D3D11_CREATE_DEVICE_VIDEO_SUPPORT|flags);
     if (!dev_)
         return false;
     trace(dev_, "MFDXDevice");

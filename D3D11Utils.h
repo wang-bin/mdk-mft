@@ -19,7 +19,9 @@ namespace D3D11 {
 ComPtr<IDXGIFactory> CreateDXGI();
 // result feature level will be <= requested value
 ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
-ComPtr<ID3D11Device> CreateDevice(int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
+// vendor != null: try to match vendor
+// vendor == null && adapterIndex == -1: default
+ComPtr<ID3D11Device> CreateDevice(const char* vendor = nullptr, int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
 D3D_FEATURE_LEVEL to_feature_level(float value = 0);
 D3D_FEATURE_LEVEL to_feature_level(const char* name = nullptr);
 void debug_report(ID3D11Device* dev, const char* prefix = nullptr);
@@ -33,8 +35,9 @@ class Manager
 {
 public:
     ~Manager();
-// adapterIndex: -1 default
-    bool init(int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
+// vendor != null: try to match vendor
+// vendor == null && adapterIndex == -1: default
+    bool init(const char* vendor = nullptr, int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
     ComPtr<IMFDXGIDeviceManager> create(); // win8+
 private:
     dll_t d3d11_dll_{nullptr, &FreeLibrary};
