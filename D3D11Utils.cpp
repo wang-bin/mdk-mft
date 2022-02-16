@@ -148,6 +148,20 @@ void debug_report(ID3D11Device* dev, const char* prefix)
     clog << fmt::to_string("------------debug report end. device %p. %s------------", dev, extra) << endl;
 }
 
+void DumpInfo(ComPtr<ID3D11Device> dev, const char* prefix)
+{
+    clog << fmt::to_string("%s Feature level: %#X, create flags: %#X", (prefix ? prefix : ""), dev->GetFeatureLevel(), dev->GetCreationFlags()) << endl;
+    ComPtr<IDXGIDevice> dxgiDev;
+    MS_ENSURE(dev.As(&dxgiDev));
+    ComPtr<IDXGIAdapter> adapter;
+    MS_ENSURE(dxgiDev->GetAdapter(&adapter));
+    DXGI_ADAPTER_DESC desc;
+    MS_ENSURE(adapter->GetDesc(&desc));
+    char description[256]{};
+    snprintf(description, sizeof(description), "%ls", desc.Description);
+    clog << fmt::to_string("dxgi adapter vendor %x, device %x, revision %x, %s", desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
+}
+
 ComPtr<IDXGIFactory> CreateDXGI() // TODO: int version = 2. 1.0/1.1 can not be mixed
 {
 #if (MS_API_DESKTOP+0)
@@ -191,7 +205,7 @@ ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex, D
         MS_ENSURE(adapter->GetDesc(&desc), nullptr);
         char description[256]{};
         snprintf(description, sizeof(description), "%ls", desc.Description);
-        clog << fmt::to_string("d3d11 adapter %d: vendor %x, device %x, revision %x, %s", adapterIndex, desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
+        clog << fmt::to_string("dxgi adapter %d: vendor %x, device %x, revision %x, %s", adapterIndex, desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
     } else {
         std::clog << "d3d11 use default adapter" << std::endl;
     }

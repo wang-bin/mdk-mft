@@ -16,6 +16,8 @@
 
 namespace D3D11 {
 
+void DumpInfo(ComPtr<ID3D11Device> dev, const char* prefix = "");
+
 ComPtr<IDXGIFactory> CreateDXGI();
 // result feature level will be <= requested value
 ComPtr<ID3D11Device> CreateDevice(ComPtr<IDXGIFactory> dxgi, int adapterIndex = 0, D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_12_1, UINT flags = 0);
