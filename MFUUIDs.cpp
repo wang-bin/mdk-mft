@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -16,8 +16,13 @@
 #include "MFGlue.h"
 #include <unordered_map>
 #include <codecapi.h>
-#include <Mferror.h>
-#include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#if __has_include(<Mferror.h>) // msvc
+# include <Mferror.h>
+# include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#else // mingw
+# include <mferror.h>
+# include <mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#endif
 // #include <rpc.h> //UuidToString, UuidHash
 # pragma pop_macro("_WIN32_WINNT")
 

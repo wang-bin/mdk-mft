@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -14,7 +14,11 @@
 #include "mdk/AudioFrame.h"
 #include "base/ms/MFTCodec.h"
 #include <codecapi.h>
-#include <Mferror.h>
+#if __has_include(<Mferror.h>) // msvc
+# include <Mferror.h>
+#else // mingw
+# include <mferror.h>
+#endif
 #include <iostream>
 // properties: copy=0(0, 1, 2)
 

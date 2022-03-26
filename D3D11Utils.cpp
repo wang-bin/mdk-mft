@@ -159,7 +159,7 @@ void DumpInfo(ComPtr<ID3D11Device> dev, const char* prefix)
     MS_ENSURE(adapter->GetDesc(&desc));
     char description[256]{};
     snprintf(description, sizeof(description), "%ls", desc.Description);
-    clog << fmt::to_string("dxgi adapter vendor %x, device %x, revision %x, %s", desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
+    clog << fmt::to_string("d3d11: %p, dxgi adapter vendor %x, device %x, revision %x, %s", dev.Get(), desc.VendorId, desc.DeviceId, desc.Revision, description) << endl;
 }
 
 ComPtr<IDXGIFactory> CreateDXGI() // TODO: int version = 2. 1.0/1.1 can not be mixed
@@ -274,6 +274,7 @@ void trace(ComPtr<IUnknown> obj, const char* name)
     static bool enabled = is_trace_enabled();
     if (!enabled)
         return;
+#if (_MSC_VER + 0)
     class __declspec(uuid("50581513-C9A0-454A-B78F-3A3156D06AC4")) DXTracer final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IUnknown> {
     public:
     // IInspectable.GetRuntimeClassName? WKPDID_D3DDebugObjectName?
@@ -301,6 +302,7 @@ void trace(ComPtr<IUnknown> obj, const char* name)
     else if (ComPtr<IDXGIObject> x; SUCCEEDED(obj.As(&x)))
         MS_ENSURE(x->SetPrivateDataInterface(__uuidof(DXTracer), dt.Get()));
     //SetPrivateDataInterface(__uuidof(xxx), xxx) // xxx ref +1, so manually Release() after set. GetPrivateData()
+#endif
 }
 
 void SetDebugName(ComPtr<IUnknown> obj, const char* name)

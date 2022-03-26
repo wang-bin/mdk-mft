@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -21,37 +21,16 @@
 #endif
 #include <d3d11.h>
 #include <mfidl.h>
-#include <Mferror.h>
+#if __has_include(<Mferror.h>) // msvc
+# include <Mferror.h>
+#else // mingw
+# include <mferror.h>
+#endif
 # pragma pop_macro("_WIN32_WINNT")
 
 MDK_NS_BEGIN
 namespace MF {
 
-#ifdef __MINGW32__
-#define DefMFVideoTransferFunction(NAME, VAL) constexpr int MFVideoTransFunc_##NAME = VAL;
-DefMFVideoTransferFunction(Log_100, 9)
-DefMFVideoTransferFunction(Log_316, 10)
-DefMFVideoTransferFunction(709_sym, 11)
-DefMFVideoTransferFunction(2020_const, 12)
-DefMFVideoTransferFunction(2020, 13)
-DefMFVideoTransferFunction(26, 14)
-DefMFVideoTransferFunction(2084, 15)
-DefMFVideoTransferFunction(HLG, 16)
-DefMFVideoTransferFunction(10_rel, 17)
-DefMFVideoTransferFunction(Last, MFVideoTransFunc_10_rel + 1)
-
-#define DefMFVideoPrimaries(NAME, VAL) constexpr int MFVideoPrimaries_##NAME = VAL;
-DefMFVideoPrimaries(BT2020, 9)
-DefMFVideoPrimaries(XYZ, 10)
-DefMFVideoPrimaries(DCI_P3, 11)
-DefMFVideoPrimaries(ACES, 12)
-DefMFVideoPrimaries(Last, MFVideoPrimaries_ACES + 1)
-
-#define DefMFVideoTransferMatrix(NAME, VAL) constexpr int MFVideoTransferMatrix_##NAME = VAL;
-DefMFVideoTransferMatrix(BT2020_10, 4)
-DefMFVideoTransferMatrix(BT2020_12, 5)
-DefMFVideoTransferMatrix(Last, MFVideoTransferMatrix_BT2020_12 + 1)
-#endif
 static const struct {
     UINT32 mf;
     ColorSpace::Primary primaries;
@@ -244,6 +223,7 @@ static const struct mf_pix_fmt_entry mf_pixfmts[] = {
     {MFVideoFormat_P016, PixelFormat::P016LE},
     {MFVideoFormat_YUY2, PixelFormat::YUYV422},
     {MFVideoFormat_UYVY, PixelFormat::UYVY422},
+    //{MFVideoFormat_420O, PixelFormat::YUV420P}, // av1, hevc, vp9
 };
 
 bool to_pixfmt(PixelFormat* pixfmt, const GUID& guid)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -21,12 +21,19 @@
 #include "mdk/Property.h"
 #include <algorithm>
 #include <codecapi.h>
-#include <Mferror.h>
-#include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#if __has_include(<Mferror.h>) // msvc
+# include <Mferror.h>
+# include <Mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#else // mingw
+# include <mferror.h>
+# include <mftransform.h> // MFT_FRIENDLY_NAME_Attribute
+#endif
 # pragma pop_macro("_WIN32_WINNT")
 using namespace std;
 
+// TODO: async. see vlc
 // properties: activate=(index 0, 1, ...), pool=1(0, 1), in_type=index(or -1), out_type=index(or -1)
+// codec attributes: https://docs.microsoft.com/zh-cn/windows/win32/directshow/codec-api-properties
 
 MDK_NS_BEGIN
 #if (_MSC_VER + 0) // RuntimeClass is missing in mingw
@@ -63,7 +70,6 @@ bool MFTCodec::openCodec(MediaType mt, const CLSID& codec_id, const Property* pr
     if (!createMFT(mt, codec_id))
         return false;
     // TODO: unlock async
-    // TODO: thread property. codec_api_->SetValue(CODECAPI_AVDecNumWorkerThreads,)
 
     DWORD nb_in = 0, nb_out = 0;
     MS_ENSURE(mft_->GetStreamCount(&nb_in, &nb_out), false);

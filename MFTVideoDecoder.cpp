@@ -50,7 +50,11 @@ Compare with FFmpeg D3D11/DXVA:
 #include "video/d3d/D3D9Utils.h"
 #include "video/d3d/D3D11Utils.h"
 #include <codecapi.h>
-#include <Mferror.h>
+#if __has_include(<Mferror.h>) // msvc
+# include <Mferror.h>
+#else // mingw
+# include <mferror.h>
+#endif
 #include <iostream>
 #include <thread>
 //#ifdef _MSC_VER
@@ -67,6 +71,7 @@ Compare with FFmpeg D3D11/DXVA:
   fast=0: normal, 1: Optimal Loop Filter, 2: Disable Loop Filter, ..., 32: fastest
   power=0: Optimize for battery life, 50: balanced, 100: Optimize for video quality. 0~100
   deinterlace=0: no, 1: progressive, 2: bob, 3: smart bob
+  TODO: property device=global
  */
 MDK_NS_BEGIN
 using namespace std;
@@ -345,6 +350,7 @@ int MFTVideoDecoder::getInputTypeScore(IMFAttributes* attr)
 
 int MFTVideoDecoder::getOutputTypeScore(IMFAttributes* attr)
 {
+    // TODO: property "format" to select yuy2, l8 etc.
     GUID subtype;
     MS_ENSURE(attr->GetGUID(MF_MT_SUBTYPE, &subtype), -1);
     VideoFormat vf;
@@ -411,6 +417,7 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
             MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED , shared), false); // shared via keyed-mutex
             MS_ENSURE(a->SetUINT32(MF_SA_D3D11_SHARED_WITHOUT_MUTEX , !kmt), false); // shared via legacy mechanism // chrome media ccd2ba30c9d51983bb7676eda9851c372ace718d
         }
+        // the decoded texture may has no SHADER_RESOUCE flag even if set in MFT(av1 decoder)
         auto sr = std::stoi(property("shader_resource", "0"));
         if (sr > 0) // hints for surfaces. applies iff MF_SA_D3D11_AWARE is TRUE
             MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_DECODER), false); // optional?
