@@ -43,8 +43,8 @@ Compare with FFmpeg D3D11/DXVA:
 #include "mdk/MediaInfo.h"
 #include "mdk/Packet.h"
 #include "mdk/VideoFrame.h"
-#include "AnnexBFilter.h"
-#include "base/ByteArray.h"
+#include "NAL.h"
+#include "base/ByteArrayBuffer.h"
 #include "base/fmt.h"
 #include "base/ms/MFTCodec.h"
 #include "video/d3d/D3D9Utils.h"
@@ -98,7 +98,7 @@ private:
 
     bool onMFTCreated(ComPtr<IMFTransform> mft) override;
     bool testConstraints(ComPtr<IMFTransform> mft);
-    uint8_t* filter(uint8_t* data, size_t* size) override;
+    BufferRef filter(BufferRef in) override;
 
     bool setInputTypeAttributes(IMFAttributes* attr) override;
     bool setOutputTypeAttributes(IMFAttributes* attr) override;
@@ -116,7 +116,7 @@ private:
     int nal_size_ = 0;
     int csd_size_ = 0;
     uint8_t* csd_ = nullptr;
-    ByteArray csd_pkt_;
+    bool csd_sent_ = false;
     VideoFrame frame_param_;
     UINT32 stride_x_ = 0;
     UINT32 stride_y_ = 0;
@@ -134,11 +134,11 @@ bool MFTVideoDecoder::open()
 
     const auto blacklist = property("blacklist", "mpeg4");
     const auto& par = parameters();
-    codec_id_ = MF::codec_for(par.codec, MediaType::Video);
     if (blacklist.find(par.codec) != string::npos) {
         clog << par.codec << " is in blacklist" << endl;
         return false;
     }
+    codec_id_ = MF::codec_for(par.codec, MediaType::Video);
     if (!codec_id_) {
         std::clog << "codec is not supported: " << par.codec << std::endl;
         return false;
@@ -188,7 +188,7 @@ bool MFTVideoDecoder::close()
         free(csd_);
     csd_ = nullptr;
     csd_size_ = 0;
-    csd_pkt_.clear();
+    csd_sent_ = false;
     bool ret = closeCodec();
     onClose();
     return ret;
@@ -277,7 +277,7 @@ bool MFTVideoDecoder::onMFTCreated(ComPtr<IMFTransform> mft)
         MS_WARN(a->SetUINT32(CODECAPI_AVDecVideoSoftwareDeinterlaceMode, val));
     // CODECAPI_AVDecVideoThreadAffinityMask, same as Win32 SetThreadAffinityMask
     // CODECAPI_AVDecDisableVideoPostProcessing (0,1): deblocking/deringing
-    // CODECAPI_AVDecVideoThumbnailGenerationMode: can decode I frame only
+    // CODECAPI_AVDecVideoThumbnailGenerationMode: can decode I frame onlyx
     return true;
 }
 
@@ -299,22 +299,22 @@ bool MFTVideoDecoder::testConstraints(ComPtr<IMFTransform> mft)
     return true;
 }
 
-uint8_t* MFTVideoDecoder::filter(uint8_t* data, size_t* size)
+BufferRef MFTVideoDecoder::filter(BufferRef in)
 {
-    if (nal_size_ <= 0)
-        return nullptr;
-    if (nal_size_ > 0) { // TODO: PacketFilter
-        //data = pkt.buffer->data(); // modify constData() if pkt is rvalue
-        to_annexb_packet(data, (int)*size, nal_size_);
-
-    }
-    if (!csd_pkt_.empty())
-        return nullptr;
-    csd_pkt_.resize(csd_size_ + (int)*size);
-    memcpy(csd_pkt_.data(), csd_, csd_size_);
-    memcpy(csd_pkt_.data() + csd_size_, data, *size);
-    *size = csd_pkt_.size();
-    return csd_pkt_.data();
+    if (nal_size_ <= 0 || !in)
+        return in;
+    // TODO: PacketFilter. convert in a new buffer and keep input packet untouched, so switching to a new decoder can decode previously cached packets(from the last key frame packet) correctly
+    const int size = in->size();
+    ByteArray out(in->constData(), size);
+    to_annexb_packet(out.data(), size, nal_size_);
+    if (csd_sent_)
+        return make_shared<ByteArrayBuffer>(out);
+    csd_sent_ = true;
+    ByteArray csd_pkt(csd_size_ + size);
+    memcpy(csd_pkt.data(), csd_, csd_size_);
+    memcpy(csd_pkt.data() + csd_size_, out.constData(), size);
+    out = csd_pkt;
+    return make_shared<ByteArrayBuffer>(out);
 }
 
 bool MFTVideoDecoder::setInputTypeAttributes(IMFAttributes* a)
@@ -420,7 +420,7 @@ bool MFTVideoDecoder::onOutputTypeChanged(DWORD streamId, ComPtr<IMFMediaType> t
         // the decoded texture may has no SHADER_RESOUCE flag even if set in MFT(av1 decoder)
         auto sr = std::stoi(property("shader_resource", "0"));
         if (sr > 0) // hints for surfaces. applies iff MF_SA_D3D11_AWARE is TRUE
-            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_DECODER), false); // optional?
+            MS_ENSURE(a->SetUINT32(MF_SA_D3D11_BINDFLAGS, D3D11_BIND_SHADER_RESOURCE/*|D3D11_BIND_DECODER*/), false); // optional?
         // MF_SA_D3D11_USAGE
         //MS_ENSURE(a->SetUINT32(MF_SA_BUFFERS_PER_SAMPLE , 1), false); // 3d video
     }

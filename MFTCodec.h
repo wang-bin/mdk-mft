@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2022 WangBin <wbsecg1 at gmail.com>
  * This file is part of MDK MFT plugin
  * Source code: https://github.com/wang-bin/mdk-mft
  *
@@ -38,7 +38,7 @@ private:
     bool setMediaTypes();
     // bitstream/packet filter
     // return nullptr if filter in place, otherwise allocated data is returned and size is modified. no need to free the data
-    virtual uint8_t* filter(uint8_t* /*data*/, size_t* /*size*/) {return nullptr;}
+    virtual BufferRef filter(BufferRef in) {return in;}
     virtual bool setInputTypeAttributes(IMFAttributes*) {return true;}
     virtual bool setOutputTypeAttributes(IMFAttributes*) {return true;}
     virtual int getInputTypeScore(IMFAttributes*) {return -1;}

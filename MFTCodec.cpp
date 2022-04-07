@@ -393,15 +393,9 @@ bool MFTCodec::decodePacket(const Packet& pkt)
         return false;
     }
     size_t size = pkt.buffer->size();
-    uint8_t* data = (uint8_t*)pkt.buffer->constData();
     Packet filtered = pkt;
-    if (data) {
-        auto new_data = filter(data, &size);
-        if (new_data) {
-            filtered.buffer = std::make_shared<BufferView>(new_data, size);
-            data = new_data;
-        }
-    }
+    if (pkt.buffer && pkt.buffer->constData())
+        filtered.buffer = filter(pkt.buffer);
     ComPtr<IMFSample> sample = MF::from(filtered, info_in_.cbAlignment);
     if (!sample)
         return false;
